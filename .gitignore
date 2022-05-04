@@ -1,0 +1,9 @@
+### Schism ###
+# Eggs
+.eggs/
+schism.egg-info/
+
+# Pycache directories
+schism/__pycache__
+schism/boundaryconditions/__pycache__
+tests/__pycache__
