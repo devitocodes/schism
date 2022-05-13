@@ -1,1 +1,1 @@
-from schism.boundaryconditions import *  # noqa
+from schism.geometry import *  # noqa
