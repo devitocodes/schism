@@ -28,7 +28,7 @@ class BoundaryGeometry:
     grid : Grid
         The grid to which the geometry is attached
     n : VectorFunction
-        Symbolic expression for the unit normal
+        Symbolic expression for the outward unit normal
     interior_mask : ndarray
         Boolean mask for interior points
     boundary_mask : ndarray
@@ -66,7 +66,8 @@ class BoundaryGeometry:
                               space_order=self.sdf.space_order,
                               staggered=(None, None, None))
 
-        normal_eq = dv.Eq(n, dv.grad(pad_sdf))
+        # Negative here as normals will be outward
+        normal_eq = dv.Eq(n, -dv.grad(pad_sdf))
         dv.Operator(normal_eq, name='normals')()
 
         self._normals = dv.VectorFunction(name='n', grid=self.sdf.grid,

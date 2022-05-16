@@ -5,4 +5,5 @@ schism.egg-info/
 
 # Pycache directories
 schism/__pycache__
+schism/geometry/__pycache__
 tests/__pycache__
