@@ -21,7 +21,22 @@ class BoundaryGeometry:
 
     Attributes
     ----------
-
+    sdf : Function
+        The signed distance function used to generate the boundary geometry
+    grid : Grid
+        The grid to which the geometry is attached
+    n : VectorFunction
+        Symbolic expression for the unit normal
+    interior_mask : ndarray
+        Boolean mask for interior points
+    boundary_mask : ndarray
+        Boolean mask for boundary points
+    boundary_points : ndarray
+        Boundary point indices
+    positions : ndarray
+        Distances from each boundary point to the boundary
+    n_boundary_points : int
+        Number of boundary points associated with the geometry
     """
 
     def __init__(self, sdf):
@@ -94,10 +109,13 @@ class BoundaryGeometry:
 
         self._positions = np.array(positions)[self.boundary_points]
 
+        self._n_boundary_points = self._boundary_points.shape[0]
+
     def _get_interior_mask(self):
         """Get the mask for interior points"""
-        # TODO: Finish this. Should just be sdf is positive and not a boundary
-        # point
+        not_boundary = np.logical_not(self.boundary_mask)
+        interior = self.sdf.data > 0
+        self._interior_mask = np.logical_and(interior, not_boundary)
 
     @property
     def sdf(self):
@@ -108,6 +126,11 @@ class BoundaryGeometry:
     def grid(self):
         """The grid on which the geometry is defined"""
         return self._grid
+
+    @property
+    def interior_mask(self):
+        """Boolean mask for interior points"""
+        return self._interior_mask
 
     @property
     def boundary_mask(self):
@@ -123,6 +146,11 @@ class BoundaryGeometry:
     def positions(self):
         """Relative offsets corresponding with each boundary point"""
         return self._positions
+
+    @property
+    def n_boundary_points(self):
+        """Number of boundary points associated with this geometry"""
+        return self._n_boundary_points
 
     @property
     def n(self):
