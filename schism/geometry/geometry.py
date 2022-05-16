@@ -5,6 +5,8 @@ Objects concerning the geometry of the surface in an immersed boundary problem.
 import numpy as np
 import devito as dv
 
+__all__ = ['BoundaryGeometry']
+
 
 class BoundaryGeometry:
     """
@@ -31,10 +33,11 @@ class BoundaryGeometry:
         Boolean mask for interior points
     boundary_mask : ndarray
         Boolean mask for boundary points
-    boundary_points : ndarray
-        Boundary point indices
-    positions : ndarray
-        Distances from each boundary point to the boundary
+    boundary_points : tuple
+        Boundary point indices as a length N tuple of arrays
+    positions : tuple
+        Distances from each boundary point to the boundary as a length N tuple
+        of arrays.
     n_boundary_points : int
         Number of boundary points associated with the geometry
     """
@@ -50,20 +53,24 @@ class BoundaryGeometry:
     def _get_boundary_normals(self):
         """Get normal direction and distance from each point to the boundary"""
         # Size of padding (required to avoid odd normals at grid edge)
-        pad = int(self.sdf.order//2)
+        pad = int(self.sdf.space_order//2)
 
         padded_grid = self._padded_grid(pad)
+        # Create a padded version of the signed distance function
+        pad_sdf = dv.Function(name='pad_sdf', grid=padded_grid,
+                              space_order=self.sdf.space_order)
+        pad_sdf.data[:] = np.pad(self.sdf.data, (pad,), 'edge')
 
         # Normal vectors
         n = dv.VectorFunction(name='n', grid=padded_grid,
-                              space_order=self.sdf.order,
+                              space_order=self.sdf.space_order,
                               staggered=(None, None, None))
 
-        normal_eq = dv.Eq(n, dv.div(self.sdf))
+        normal_eq = dv.Eq(n, dv.grad(pad_sdf))
         dv.Operator(normal_eq, name='normals')()
 
         self._normals = dv.VectorFunction(name='n', grid=self.sdf.grid,
-                                          space_order=self.sdf.order,
+                                          space_order=self.sdf.space_order,
                                           staggered=(None, None, None))
 
         # Trim the padding off
@@ -82,14 +89,15 @@ class BoundaryGeometry:
         origin = tuple(origin)
 
         # Get size and extent of the padded grid
-        extent = np.array(self.grid.extent)
+        extent = np.array(self.grid.extent, dtype=float)
         extent += 2*pad*np.array(self.grid.spacing)
         extent = tuple(extent)
 
         shape = np.array(self.grid.shape)+2*pad
         shape = tuple(shape)
 
-        grid = dv.Grid(shape=shape, extent=extent, origin=origin)
+        grid = dv.Grid(shape=shape, extent=extent, origin=origin,
+                       dimensions=self.grid.dimensions)
         return grid
 
     def _get_boundary_points(self):
@@ -97,19 +105,27 @@ class BoundaryGeometry:
         Get indices of boundary points and their distances to the boundary.
         """
         spacing = self.grid.spacing
+        max_dist = np.sqrt(sum([(inc/2)**2 for inc in spacing]))
 
-        positions = [self.n[i].data*self.sdf.data for i in range(len(spacing))]
+        # Normalise positions by grid increment
+        positions = [self.n[i].data*self.sdf.data/spacing[i]
+                     for i in range(len(spacing))]
 
-        masks = [np.abs(positions[i]) <= spacing[i]/2
+        masks = [np.abs(positions[i]) <= 0.5
                  for i in range(len(spacing))]
+        mask = np.logical_and.reduce(masks)
 
-        self._boundary_mask = np.logical_and.reduce(masks)
+        close = np.abs(self.sdf.data) <= max_dist
+
+        self._boundary_mask = np.logical_and(close, mask)
 
         self._boundary_points = np.where(self.boundary_mask)
 
-        self._positions = np.array(positions)[self.boundary_points]
+        # May want to be an array rather than a tuple of arrays in future
+        self._positions = tuple([positions[i][self.boundary_points]
+                                 for i in range(len(spacing))])
 
-        self._n_boundary_points = self._boundary_points.shape[0]
+        self._n_boundary_points = self._boundary_points[0].shape[0]
 
     def _get_interior_mask(self):
         """Get the mask for interior points"""

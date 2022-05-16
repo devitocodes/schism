@@ -1,1 +1,1 @@
-from geometry import BoundaryGeometry  # noqa
+from .geometry import BoundaryGeometry  # noqa
