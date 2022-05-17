@@ -42,3 +42,35 @@ class TestBoundaryGeometry:
         n_mag = np.sqrt(sum([normals[i]**2 for i in range(len(spacing))]))
 
         assert np.all(np.isclose(n_mag, 1, rtol=rtol))
+
+    r2o2 = np.sqrt(2)/2  # Used repeatedly in next test
+
+    @pytest.mark.parametrize('surface, dims, answer',
+                             [('45', 2, (-r2o2, r2o2)),
+                              ('45', 3, (-r2o2, 0, r2o2)),
+                              ('45_mirror', 2, (r2o2, r2o2)),
+                              ('45_mirror', 3, (r2o2, 0, r2o2)),
+                              ('horizontal', 2, (0., 1.)),
+                              ('horizontal', 3, (0., 0., 1.)),
+                              ('vertical', 2, (1., 0.)),
+                              ('vertical', 3, (1., 0., 0.))])
+    def test_unit_normal_direction(self, surface, dims, answer):
+        """Check that unit normals point in the correct direction"""
+        rtol = 0.1  # Allow up to 10% deviation
+
+        sdf = read_sdf(surface, dims)
+        bg = BoundaryGeometry(sdf)
+        # Check boundary normals where the sdf<=0.5*spacing
+        spacing = sdf.grid.spacing
+        max_dist = np.sqrt(sum([(inc/2)**2 for inc in spacing]))
+
+        # Trim edges off data, as normal calculation in corners is imperfect
+        slices = tuple([slice(1, -1) for dim in sdf.grid.dimensions])
+        data = sdf.data[slices]
+
+        mask = np.abs(data) <= max_dist
+
+        normals = [bg.n[i].data[slices][mask] for i in range(len(spacing))]
+
+        for i in range(len(normals)):
+            assert np.all(np.isclose(normals[i], answer[i], rtol=rtol))
