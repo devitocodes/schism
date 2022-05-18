@@ -4,6 +4,7 @@ import pickle
 import os
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 from schism import BoundaryGeometry
 
@@ -74,3 +75,20 @@ class TestBoundaryGeometry:
 
         for i in range(len(normals)):
             assert np.all(np.isclose(normals[i], answer[i], rtol=rtol))
+
+    @pytest.mark.parametrize('surface, dims', [('45', 2),
+                                               ('45_mirror', 2),
+                                               ('horizontal', 2),
+                                               ('vertical', 2)])
+    def test_boundary_mask(self, surface, dims):
+        """Check that the boundary points are correctly identified"""
+
+        sdf = read_sdf(surface, dims)
+        bg = BoundaryGeometry(sdf)
+
+        # Check boundary mask size
+        assert bg.boundary_mask.shape == bg.grid.shape
+
+        plt.imshow(bg.boundary_mask.T, origin='lower')
+        plt.colorbar()
+        plt.show()
