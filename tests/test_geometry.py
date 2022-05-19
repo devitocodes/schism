@@ -92,3 +92,7 @@ class TestBoundaryGeometry:
         plt.imshow(bg.boundary_mask.T, origin='lower')
         plt.colorbar()
         plt.show()
+
+        # Trim edges off data, as normal calculation in corners is imperfect
+        slices = tuple([slice(2, -2) for dim in sdf.grid.dimensions])
+        data = sdf.data[slices]

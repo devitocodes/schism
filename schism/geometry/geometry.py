@@ -5,7 +5,11 @@ Objects concerning the geometry of the surface in an immersed boundary problem.
 import numpy as np
 import devito as dv
 
+from schism.utils.environment import get_geometry_feps
+
 __all__ = ['BoundaryGeometry']
+
+_feps = get_geometry_feps()
 
 
 class BoundaryGeometry:
@@ -112,7 +116,8 @@ class BoundaryGeometry:
         positions = [self.n[i].data*self.sdf.data/spacing[i]
                      for i in range(len(spacing))]
 
-        masks = [np.abs(positions[i]) <= 0.5
+        # Allows some slack to cope with floating point error
+        masks = [np.abs(positions[i]) <= 0.5 + _feps
                  for i in range(len(spacing))]
         mask = np.logical_and.reduce(masks)
 
