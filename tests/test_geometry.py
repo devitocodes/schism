@@ -79,7 +79,11 @@ class TestBoundaryGeometry:
     @pytest.mark.parametrize('surface, dims', [('45', 2),
                                                ('45_mirror', 2),
                                                ('horizontal', 2),
-                                               ('vertical', 2)])
+                                               ('vertical', 2),
+                                               ('45', 3),
+                                               ('45_mirror', 3),
+                                               ('horizontal', 3),
+                                               ('vertical', 3)])
     def test_boundary_mask(self, surface, dims):
         """Check that the boundary points are correctly identified"""
 
@@ -89,10 +93,57 @@ class TestBoundaryGeometry:
         # Check boundary mask size
         assert bg.boundary_mask.shape == bg.grid.shape
 
-        plt.imshow(bg.boundary_mask.T, origin='lower')
-        plt.colorbar()
-        plt.show()
-
         # Trim edges off data, as normal calculation in corners is imperfect
         slices = tuple([slice(2, -2) for dim in sdf.grid.dimensions])
-        data = sdf.data[slices]
+        data = bg.boundary_mask[slices]
+
+        check_mask = np.zeros(data.shape, dtype=bool)
+        if surface == '45':
+            # Diagonal indices
+            diag_indices = np.arange(data.shape[0])
+            # Below the diagonal
+            diag_indices_n1 = np.arange(1, data.shape[0])
+            # Above the diagonal
+            diag_indices_1 = np.arange(0, data.shape[0]-1)
+            # Fill the diagonals
+            if dims == 2:
+                check_mask[diag_indices, diag_indices] = True
+                check_mask[diag_indices_n1, diag_indices_n1-1] = True
+                check_mask[diag_indices_1, diag_indices_1+1] = True
+            elif dims == 3:
+                check_mask[diag_indices, :, diag_indices] = True
+                check_mask[diag_indices_n1, :, diag_indices_n1-1] = True
+                check_mask[diag_indices_1, :, diag_indices_1+1] = True
+
+        elif surface == '45_mirror':
+            # Diagonal indices
+            diag_indices = np.arange(data.shape[0])
+            # Above the diagonal
+            diag_indices_1 = np.arange(0, data.shape[0]-1)
+            # Two above the diagonal
+            diag_indices_2 = np.arange(0, data.shape[0]-2)
+            # Fill the diagonals
+            if dims == 2:
+                check_mask[diag_indices, diag_indices] = True
+                check_mask[diag_indices_1, diag_indices_1+1] = True
+                check_mask[diag_indices_2, diag_indices_2+2] = True
+            elif dims == 3:
+                check_mask[diag_indices, :, diag_indices] = True
+                check_mask[diag_indices_1, :, diag_indices_1+1] = True
+                check_mask[diag_indices_2, :, diag_indices_2+2] = True
+
+            check_mask = check_mask[::-1]
+
+        elif surface == 'horizontal':
+            if dims == 2:
+                check_mask[:, 48:50] = True
+            elif dims == 3:
+                check_mask[:, :, 48:50] = True
+
+        elif surface == 'vertical':
+            if dims == 2:
+                check_mask[48:50, :] = True
+            elif dims == 3:
+                check_mask[48:50, :, :] = True
+
+        assert np.all(data == check_mask)
