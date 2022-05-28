@@ -73,7 +73,6 @@ class TestBoundaryGeometry:
 
         normals = [bg.n[i].data[slices][mask] for i in range(len(spacing))]
 
-
         # Start by just printing them
         print(bg.positions)
         assert False
@@ -213,14 +212,13 @@ class TestBoundaryGeometry:
         slices = tuple([slice(2, -2) for dim in sdf.grid.dimensions])
 
         # Create a meshgrid of indices
-        # FIXME: np.meshgrid is weird. Sort this out
         if dims == 2:
             x, z = np.meshgrid(np.arange(bg.grid.shape[0]),
-                               np.arange(bg.grid.shape[1]))
+                               np.arange(bg.grid.shape[1]), indexing='ij')
         elif dims == 3:
             x, y, z = np.meshgrid(np.arange(bg.grid.shape[0]),
                                   np.arange(bg.grid.shape[1]),
-                                  np.arange(bg.grid.shape[2]))
+                                  np.arange(bg.grid.shape[2]), indexing='ij')
 
         if surface == '45_mirror':
             check_mask = x + z < 100
