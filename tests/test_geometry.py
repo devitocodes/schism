@@ -4,7 +4,6 @@ import pickle
 import os
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 from schism import BoundaryGeometry
 
@@ -172,8 +171,8 @@ class TestBoundaryGeometry:
         check_mask = np.zeros(bg.grid.shape, dtype=bool)
         check_mask[bg.boundary_points] = True
         assert np.all(check_mask == bg.boundary_mask)
-        # FIXME: Wants to test some other surfaces too
-        # FIXME: Like sines, eggboxes, etc
+        # TODO: Wants to test some other surfaces too
+        # TODO: Like sines, eggboxes, etc
 
     @pytest.mark.parametrize('surface, dims', [('45', 2),
                                                ('horizontal', 2)])
