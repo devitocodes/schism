@@ -7,4 +7,5 @@ schism.egg-info/
 schism/__pycache__
 schism/geometry/__pycache__
 schism/utils/__pycache__
+schism/conditions/__pycache__
 tests/__pycache__
