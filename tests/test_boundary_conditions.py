@@ -11,7 +11,7 @@ class TestBCs:
     """Tests for the BoundaryConditions object"""
 
     grid = dv.Grid(shape=(11, 11), extent=(10., 10.))
-    f = dv.TimeFunction(name='f', grid=grid)
+    f = dv.TimeFunction(name='f', grid=grid, space_order=2)
     v = dv.VectorTimeFunction(name='v', grid=grid)
     tau = dv.TensorTimeFunction(name='tau', grid=grid)
 
@@ -22,7 +22,13 @@ class TestBCs:
                                [dv.Eq(v[0].dx + v[1].dy, 0)]),
                               ([dv.Eq(tau*v, sp.Matrix([0., 0.]))],
                                [dv.Eq(v[0]*tau[0, 0] + v[1]*tau[0, 1], 0),
-                                dv.Eq(v[0]*tau[1, 0] + v[1]*tau[1, 1], 0)])])
+                                dv.Eq(v[0]*tau[1, 0] + v[1]*tau[1, 1], 0)]),
+                              ([dv.Eq(f, 0), dv.Eq(f.laplace, 0)],
+                               [dv.Eq(f, 0), dv.Eq(f.laplace, 0)]),
+                              ([dv.Eq(f, 0), dv.Eq(f, 0),
+                                dv.Eq(f.dx2, 0), dv.Eq(f.dy2, 0)],
+                               [dv.Eq(f, 0), dv.Eq(f.dx2, 0),
+                                dv.Eq(f.dy2, 0)])])
     def test_eq_flattening(self, eqs, ans):
         """
         Check that equations are correctly flattened with duplicates removed.
