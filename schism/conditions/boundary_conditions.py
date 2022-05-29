@@ -45,9 +45,12 @@ class BoundaryConditions:
         """Flatten the equations provided"""
         eq_list = []
         for eq in eqs:
-            eq_list += eq._flatten
+            try:
+                eq_list += eq._flatten
+            except KeyError:
+                errmsg = "Size of {} does not match {}"
+                raise TypeError(errmsg.format(eq.lhs, eq.rhs))
 
-        print(eq_list)
         # Cull duplicates
         eq_set = set(eq_list)
 
