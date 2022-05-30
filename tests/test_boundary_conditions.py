@@ -3,7 +3,8 @@ import pytest
 import devito as dv
 import sympy as sp
 
-from schism.conditions import BoundaryCondition, BoundaryConditions
+from schism import BoundaryConditions
+from schism.conditions.boundary_conditions import BoundaryCondition
 from collections import Counter
 
 
@@ -14,6 +15,21 @@ class TestBCs:
     f = dv.TimeFunction(name='f', grid=grid, space_order=2)
     v = dv.VectorTimeFunction(name='v', grid=grid)
     tau = dv.TensorTimeFunction(name='tau', grid=grid)
+
+    @pytest.mark.parametrize('funcs, ans',
+                             [((v,), (v[0], v[1])),
+                              ((tau,), (tau[0, 0],
+                                        tau[1, 0], tau[1, 1])),
+                              ((v, tau), (v[0], v[1], tau[0, 0],
+                                          tau[1, 0], tau[1, 1])),
+                              ((v, f), (v[0], v[1], f))])
+    def test_function_flattening(self, funcs, ans):
+        """Check that functions supplied by user are correctly flattened"""
+        grid = dv.Grid(shape=(11, 11), extent=(10., 10.))
+        f = dv.TimeFunction(name='f', grid=grid, space_order=2)
+        bcs = BoundaryConditions([dv.Eq(f, 0)], funcs=funcs)
+        # Uses a counter as unordered sets used
+        assert Counter(bcs.funcs) == Counter(ans)
 
     @pytest.mark.parametrize('eqs, ans',
                              [([dv.Eq(f, 0), dv.Eq(f, 0)],
@@ -36,6 +52,36 @@ class TestBCs:
         bcs = BoundaryConditions(eqs)
         # Uses a counter as bc order can be inconsistent
         assert Counter(bcs.equations) == Counter(ans)
+
+    @pytest.mark.parametrize('eqs, funcs, ans',
+                             [([dv.Eq(f, 0), dv.Eq(f.laplace, 0)],
+                               None,
+                               (BoundaryCondition(dv.Eq(f, 0)),
+                                BoundaryCondition(dv.Eq(f.laplace, 0)))),
+                              ([dv.Eq(f, 0), dv.Eq(f.laplace, 0),
+                                dv.Eq(dv.div(v), 0)],
+                               None,
+                               (BoundaryCondition(dv.Eq(f, 0)),
+                                BoundaryCondition(dv.Eq(f.laplace, 0)),
+                                BoundaryCondition(dv.Eq(dv.div(v), 0)))),
+                              ([dv.Eq(tau*v, sp.Matrix([0., 0.]))],
+                               (tau,),
+                               (BoundaryCondition(dv.Eq(v[0]*tau[0, 0]
+                                                  + v[1]*tau[0, 1], 0),
+                                                  funcs=(tau[0, 0], tau[0, 1],
+                                                         tau[1, 1])),
+                                BoundaryCondition(dv.Eq(v[0]*tau[1, 0]
+                                                  + v[1]*tau[1, 1], 0),
+                                                  funcs=(tau[0, 0], tau[0, 1],
+                                                         tau[1, 1]))))])
+    def test_bc_setup(self, eqs, funcs, ans):
+        """Check that BCs are correctly set up"""
+        bcs = BoundaryConditions(eqs, funcs=funcs)
+        # Need to assert that both match -> goes both ways
+        for bc in bcs.bcs:
+            assert bc in ans
+        for a in ans:
+            assert a in bcs.bcs
 
 
 class TestBC:

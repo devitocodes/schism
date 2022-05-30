@@ -1,11 +1,10 @@
 """Objects for the specification of boundary conditions"""
 
-__all__ = ['BoundaryConditions', 'BoundaryCondition']
+__all__ = ['BoundaryConditions']
 
 import devito as dv
 
 from devito.symbolics import retrieve_functions
-from schism.utils.search import retrieve_derivatives
 
 
 class BoundaryCondition:
@@ -38,13 +37,26 @@ class BoundaryCondition:
     """
     def __init__(self, eq, funcs=None):
         self._eq = eq
-        # Check the rhs (wants to raise an error if nonzero for now)
+        # Parse the rhs
+        self._parse_rhs()
         # Get the intersection between funcs in lhs and funcs supplied
         self._get_functions(funcs)
         # Get the dimensions in which derivatives are taken
         self._get_derivative_dimensions()
         # Substitute the coefficients in the expression
         # Note: needs to complain if a function found in the expression
+        # TODO: Finish this
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.__dict__ == other.__dict__
+        else:
+            return False
+
+    def _parse_rhs(self):
+        """Parse and process the RHS of the equation"""
+        if self.rhs != 0:
+            raise NotImplementedError("Nonzero RHS currently unsupported")
 
     def _get_functions(self, funcs):
         """
@@ -72,9 +84,10 @@ class BoundaryCondition:
         for deriv in derivs:
             # Check that expression is a function
             if not isinstance(deriv.expr, dv.Function):
-                errmsg = """Derivatives of non-Function expressions"""
-                """unsupported. Note that currently f.dx.dy will not be"""
-                """collapsed to f.dxdy, and should be amended as such."""
+                errmsg = """Derivatives of non-Function expressions
+                            unsupported. Note that currently f.dx.dy will not
+                            be collapsed to f.dxdy, and should be amended as
+                            such."""
                 raise NotImplementedError(errmsg)
 
             # Check that derivative is of a function in .funcs
@@ -138,19 +151,35 @@ class BoundaryConditions:
         Groups of boundary conditions which are connected by the functions
         used within them
     functions : tuple
-        The Functions relevant to the boundary conditions
+        Functions on which the boundary conditions are imposed
     function_map : dict
         Mapping between functions and boundary condition groups
     """
     def __init__(self, eqs, funcs=None):
+        # Flatten functions supplied and remove duplicates
+        self._flatten_functions(funcs)
         # Create the equations tuple, flattening equations
         self._flatten_equations(eqs)
 
         # Set up the BoundaryCondition objects for each equation
+        self._setup_bcs()
 
         # Set up the groups using networkx
 
         # Set up the remaining attributes and any helpers etc
+
+    def _flatten_functions(self, funcs):
+        """Flatten the functions provided where necessary"""
+        if funcs is None:
+            self._funcs = None
+        else:
+            flat_funcs = set()
+            for func in funcs:
+                try:
+                    flat_funcs.update(func.flat())
+                except AttributeError:
+                    flat_funcs.add(func)
+            self._funcs = tuple(flat_funcs)
 
     def _flatten_equations(self, eqs):
         """Flatten the equations provided"""
@@ -167,7 +196,26 @@ class BoundaryConditions:
 
         self._eqs = tuple(eq_set)
 
+    def _setup_bcs(self):
+        """Set up a BoundaryCondition object for each equation"""
+        self._bcs = [BoundaryCondition(eq, funcs=self.funcs)
+                     for eq in self.equations]
+
     @property
     def equations(self):
         """Equalities to be imposed on the surface"""
         return self._eqs
+
+    @property
+    def bcs(self):
+        """BoundaryCondition for each equation"""
+        return self._bcs
+
+    @property
+    def funcs(self):
+        """
+        The functions on which Boundary conditions are imposed. Note these are
+        what has been specified by the user, not what is actually contained
+        within the boundary conditions
+        """
+        return self._funcs
