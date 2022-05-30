@@ -42,8 +42,10 @@ class TestBC:
     """Tests for the BoundaryCondition object"""
 
     grid = dv.Grid(shape=(11, 11), extent=(10., 10.))
+    x, y = grid.dimensions
     f = dv.TimeFunction(name='f', grid=grid, space_order=2)
     g = dv.Function(name='g', grid=grid, space_order=2)
+    h = dv.TimeFunction(name='h', grid=grid, space_order=2)
     v = dv.VectorTimeFunction(name='v', grid=grid)
     tau = dv.TensorTimeFunction(name='tau', grid=grid)
 
@@ -78,4 +80,19 @@ class TestBC:
         """
         condition = BoundaryCondition(bc, funcs=funcs)
 
-        assert Counter(condition.functions) == Counter(ans)
+        assert Counter(condition.funcs) == Counter(ans)
+
+    @pytest.mark.parametrize('bc, ans',
+                             [(dv.Eq(f, 0), None),
+                              (dv.Eq(f+h, 0), None),
+                              (dv.Eq(f+2*f.dx+3*f.dx2, 0), (x,)),
+                              (dv.Eq(f.dx+h.dx, 0), (x,)),
+                              (dv.Eq(f.laplace, 0), (x, y)),
+                              (dv.Eq(f.laplace+h.laplace, 0), (x, y)),
+                              (dv.Eq(f.dxdy, 0), (x, y)),
+                              (dv.Eq(f+h.dxdy, 0), (x, y))])
+    def test_derivative_dims(self, bc, ans):
+        """Check that derivative directions correctly identified"""
+        condition = BoundaryCondition(bc)
+
+        assert Counter(condition.dims) == Counter(ans)
