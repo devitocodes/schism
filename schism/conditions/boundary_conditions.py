@@ -50,12 +50,14 @@ class BoundaryCondition:
         if funcs is None:
             # Get all time-dependent functions in LHS
             all_funcs = retrieve_functions(self.lhs)
-            self._funcs = tuple([func for func in all_funcs
-                                 if func.is_TimeDependent])
+            # Cull duplicates in here as retrieve_functions works on a term-by-
+            # term basis and will return duplicates if a function appears
+            # multiple times in an expression.
+            self._funcs = tuple(set([func for func in all_funcs
+                                     if func.is_TimeDependent]))
         else:
             # Need intersection of functions in LHS and specified functions
             all_funcs = set(retrieve_functions(self.lhs))
-            # TODO: Check this needs to be turned into a set
             self._funcs = tuple(all_funcs.intersection(set(funcs)))
 
     @property
@@ -72,6 +74,11 @@ class BoundaryCondition:
     def rhs(self):
         """Alias for self.equation.rhs"""
         return self.equation.rhs
+
+    @property
+    def functions(self):
+        """Functions on which the BC is imposed"""
+        return self._funcs
 
 
 class BoundaryConditions:
