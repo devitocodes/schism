@@ -2,8 +2,10 @@
 
 __all__ = ['BoundaryConditions', 'BoundaryCondition']
 
+import devito as dv
 
 from devito.symbolics import retrieve_functions
+from schism.utils.search import retrieve_derivatives
 
 
 class BoundaryCondition:
@@ -36,9 +38,11 @@ class BoundaryCondition:
     """
     def __init__(self, eq, funcs=None):
         self._eq = eq
+        # Check the rhs (wants to raise an error if nonzero for now)
         # Get the intersection between funcs in lhs and funcs supplied
         self._get_functions(funcs)
         # Get the dimensions in which derivatives are taken
+        self._get_derivative_dimensions()
         # Substitute the coefficients in the expression
         # Note: needs to complain if a function found in the expression
 
@@ -60,6 +64,32 @@ class BoundaryCondition:
             all_funcs = set(retrieve_functions(self.lhs))
             self._funcs = tuple(all_funcs.intersection(set(funcs)))
 
+    def _get_derivative_dimensions(self):
+        """Get the dimensions in which derivatives are taken"""
+        # Get all the derivatives on the lhs
+        derivs = self.lhs.find(dv.Derivative)
+        dims = set()  # Dimensions in which derivs are taken
+        for deriv in derivs:
+            # Check that expression is a function
+            if not isinstance(deriv.expr, dv.Function):
+                errmsg = """Derivatives of non-Function expressions"""
+                """unsupported. Note that currently f.dx.dy will not be"""
+                """collapsed to f.dxdy, and should be amended as such."""
+                raise NotImplementedError(errmsg)
+
+            # Check that derivative is of a function in .funcs
+            if deriv.expr in self.funcs:
+                dims.update(deriv.dims)
+            # Derivatives of other fields currently unsupported
+            else:
+                errmsg = "Derivatives of coefficent functions unsupported"
+                raise NotImplementedError(errmsg)
+
+        if len(dims) == 0:  # If no derivatives present, then set to None
+            self._dims = None
+        else:  # Otherwise record the derivatives
+            self._dims = tuple(dims)
+
     @property
     def equation(self):
         """The equation imposed by the boundary condition"""
@@ -76,9 +106,14 @@ class BoundaryCondition:
         return self.equation.rhs
 
     @property
-    def functions(self):
+    def funcs(self):
         """Functions on which the BC is imposed"""
         return self._funcs
+
+    @property
+    def dims(self):
+        """Dimensions in which derivatives are taken"""
+        return self._dims
 
 
 class BoundaryConditions:
