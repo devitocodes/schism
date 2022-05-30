@@ -129,6 +129,25 @@ class BoundaryCondition:
         return self._dims
 
 
+class ConditionGroup:
+    """
+    A group of boundary conditions with overlapping functions
+
+    Parameters
+    ----------
+    conditions : tuple
+        BoundaryCondition objects in the group
+    functions : tuple
+        Functions that define the group
+    dimensions : tuple
+        Dimensions in which derivatives are taken within the group
+    dimension_map : dict
+        Mapping between dimensions and valid BCs for that dimension
+    """
+    def __init__(self):
+        print("Initialised")
+
+
 class BoundaryConditions:
     """
     A set of specified boundary conditions which will be imposed on some
@@ -160,10 +179,8 @@ class BoundaryConditions:
         self._flatten_functions(funcs)
         # Create the equations tuple, flattening equations
         self._flatten_equations(eqs)
-
         # Set up the BoundaryCondition objects for each equation
         self._setup_bcs()
-
         # Set up the groups using networkx
 
         # Set up the remaining attributes and any helpers etc
