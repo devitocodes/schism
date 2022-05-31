@@ -6,6 +6,7 @@ import devito as dv
 import networkx as nx
 
 from devito.symbolics import retrieve_functions
+from devito.tools.data_structures import frozendict
 
 
 class BoundaryCondition:
@@ -271,7 +272,10 @@ class BoundaryConditions:
             bc_groups.append(new_group)
             for func in group:
                 f_map[func] = new_group
-        print(f_map)
+
+        self._groups = tuple(bc_groups)
+        # Dictionary does not want to be mutable from here on out
+        self._f_map = frozendict(f_map)
 
     @property
     def equations(self):
@@ -291,3 +295,18 @@ class BoundaryConditions:
         within the boundary conditions
         """
         return self._funcs
+
+    @property
+    def groups(self):
+        """
+        Groups of boundary conditions which are connected by the functions
+        used within them
+        """
+        return self._groups
+
+    @property
+    def function_map(self):
+        """
+        Mapping between functions and boundary condition groups
+        """
+        return self._f_map

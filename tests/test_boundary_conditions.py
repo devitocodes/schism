@@ -6,15 +6,16 @@ import sympy as sp
 from schism import BoundaryConditions
 from schism.conditions.boundary_conditions import BoundaryCondition
 from collections import Counter
+from itertools import combinations
 
 
 class TestBCs:
     """Tests for the BoundaryConditions object"""
 
     grid = dv.Grid(shape=(11, 11), extent=(10., 10.))
-    f = dv.TimeFunction(name='f', grid=grid, space_order=2)
-    v = dv.VectorTimeFunction(name='v', grid=grid)
-    tau = dv.TensorTimeFunction(name='tau', grid=grid)
+    f = dv.TimeFunction(name='f', grid=grid, space_order=4)
+    v = dv.VectorTimeFunction(name='v', grid=grid, space_order=4)
+    tau = dv.TensorTimeFunction(name='tau', grid=grid, space_order=4)
 
     @pytest.mark.parametrize('funcs, ans',
                              [((v,), (v[0], v[1])),
@@ -82,6 +83,22 @@ class TestBCs:
             assert bc in ans
         for a in ans:
             assert a in bcs.bcs
+
+    @pytest.mark.parametrize('eqs, funcs, same, sep',
+                             [([dv.Eq(f, 0), dv.Eq(f.laplace, 0),
+                               dv.Eq(dv.div(v), 0)], None,
+                               (v[0], v[1]), (v[0], f)),
+                              ([dv.Eq(tau*v, sp.Matrix([0., 0.]))], (tau,),
+                               (tau[0, 0], tau[0, 1], tau[1, 1]), ())])
+    def test_condition_grouping(self, eqs, funcs, same, sep):
+        """Check that BCs are correctly grouped"""
+        # same = functions that should be together
+        # sep = functions that should be separate
+        bcs = BoundaryConditions(eqs, funcs=funcs)
+        for a, b in combinations(same, 2):
+            assert bcs.function_map[a] is bcs.function_map[b]
+        for a, b in combinations(sep, 2):
+            assert bcs.function_map[a] is not bcs.function_map[b]
 
 
 class TestBC:
