@@ -204,6 +204,11 @@ class BoundaryConditions:
         by user
     function_map : dict
         Mapping between functions and boundary condition groups
+
+    Methods
+    -------
+    get_group(func)
+        Returns the BC group for a given function
     """
     def __init__(self, eqs, funcs=None):
         # Flatten functions supplied and remove duplicates
@@ -214,8 +219,6 @@ class BoundaryConditions:
         self._setup_bcs()
         # Set up the groups using networkx
         self._group_bcs()
-
-        # Set up the remaining attributes and any helpers etc
 
     def _flatten_functions(self, funcs):
         """Flatten the functions provided where necessary"""
@@ -276,6 +279,10 @@ class BoundaryConditions:
         self._groups = tuple(bc_groups)
         # Dictionary does not want to be mutable from here on out
         self._f_map = frozendict(f_map)
+
+    def get_group(self, func):
+        """Get the boundary condition group for a given function"""
+        return self.function_map[func]
 
     @property
     def equations(self):

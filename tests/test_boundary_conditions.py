@@ -89,16 +89,22 @@ class TestBCs:
                                dv.Eq(dv.div(v), 0)], None,
                                (v[0], v[1]), (v[0], f)),
                               ([dv.Eq(tau*v, sp.Matrix([0., 0.]))], (tau,),
-                               (tau[0, 0], tau[0, 1], tau[1, 1]), ())])
+                               (tau[0, 0], tau[0, 1], tau[1, 1]), ()),
+                              ([dv.Eq(f, 0), dv.Eq(f.dx2+f.dy2, 0),
+                                dv.Eq(f.dx4+2*f.dx2dy2+f.dy4, 0),
+                                dv.Eq(v[0].dx+v[1].dy, 0),
+                                dv.Eq(v[0].dx3+v[1].dx2dy
+                                      + v[0].dxdy2+v[1].dx3, 0)], None,
+                               (v[0], v[1]), (v[0], f))])
     def test_condition_grouping(self, eqs, funcs, same, sep):
         """Check that BCs are correctly grouped"""
         # same = functions that should be together
         # sep = functions that should be separate
         bcs = BoundaryConditions(eqs, funcs=funcs)
         for a, b in combinations(same, 2):
-            assert bcs.function_map[a] is bcs.function_map[b]
+            assert bcs.get_group(a) is bcs.get_group(b)
         for a, b in combinations(sep, 2):
-            assert bcs.function_map[a] is not bcs.function_map[b]
+            assert bcs.get_group(a) is not bcs.get_group(b)
 
 
 class TestBC:
