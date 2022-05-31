@@ -3,6 +3,7 @@
 __all__ = ['BoundaryConditions']
 
 import devito as dv
+import networkx as nx
 
 from devito.symbolics import retrieve_functions
 
@@ -52,6 +53,12 @@ class BoundaryCondition:
             return self.__dict__ == other.__dict__
         else:
             return False
+
+    def __str__(self):
+        return "BoundaryCondition({})".format(str(self.equation))
+
+    def __repr__(self):
+        return "BoundaryCondition({})".format(str(self.equation))
 
     def _parse_rhs(self):
         """Parse and process the RHS of the equation"""
@@ -137,15 +144,37 @@ class ConditionGroup:
     ----------
     conditions : tuple
         BoundaryCondition objects in the group
-    functions : tuple
+    funcs : tuple
         Functions that define the group
-    dimensions : tuple
-        Dimensions in which derivatives are taken within the group
+
+    Attributes
+    ----------
+    conditions : tuple
+        BoundaryCondition objects in the group
+    funcs : tuple
+        Functions that define the group
     dimension_map : dict
         Mapping between dimensions and valid BCs for that dimension
     """
-    def __init__(self):
-        print("Initialised")
+    def __init__(self, conditions, funcs):
+        self._conds = conditions
+        self._funcs = funcs
+
+    def __str__(self):
+        return "ConditionGroup{}".format(str(self.funcs))
+
+    def __repr__(self):
+        return "ConditionGroup{}".format(str(self.funcs))
+
+    @property
+    def conditions(self):
+        """BoundaryCondition objects in the group"""
+        return self._conds
+
+    @property
+    def funcs(self):
+        """Functions that define the group"""
+        return self._funcs
 
 
 class BoundaryConditions:
@@ -169,8 +198,9 @@ class BoundaryConditions:
     groups : tuple
         Groups of boundary conditions which are connected by the functions
         used within them
-    functions : tuple
-        Functions on which the boundary conditions are imposed
+    funcs : tuple
+        Functions on which the boundary conditions are imposed (as specified)
+        by user
     function_map : dict
         Mapping between functions and boundary condition groups
     """
@@ -182,6 +212,7 @@ class BoundaryConditions:
         # Set up the BoundaryCondition objects for each equation
         self._setup_bcs()
         # Set up the groups using networkx
+        self._group_bcs()
 
         # Set up the remaining attributes and any helpers etc
 
@@ -217,6 +248,30 @@ class BoundaryConditions:
         """Set up a BoundaryCondition object for each equation"""
         self._bcs = [BoundaryCondition(eq, funcs=self.funcs)
                      for eq in self.equations]
+
+    def _group_bcs(self):
+        """Group the BCs supplied by their overlapping functions"""
+        # Use networkx graph to find interconnectivity between functions
+        f_graph = nx.Graph()
+        for bc in self.bcs:
+            f_graph.add_nodes_from(bc.funcs)
+            # Set up edges between first function and all others
+            # Will all end up linked through the first function
+            edges = [(bc.funcs[0], func) for func in bc.funcs[1:]]
+            f_graph.add_edges_from(edges)
+
+        # Functions interlinked by boundary conditions
+        f_groups = [tuple(group) for group in nx.connected_components(f_graph)]
+
+        bc_groups = []
+        f_map = {}
+        for group in f_groups:
+            conditions = [bc for bc in self.bcs if bc.funcs[0] in group]
+            new_group = ConditionGroup(conditions, group)
+            bc_groups.append(new_group)
+            for func in group:
+                f_map[func] = new_group
+        print(f_map)
 
     @property
     def equations(self):
