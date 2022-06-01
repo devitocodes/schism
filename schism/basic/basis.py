@@ -51,6 +51,12 @@ class Basis:
 
         self._get_expression()
 
+    def __str__(self):
+        return "Basis({})".format(str(self.expr))
+
+    def __repr__(self):
+        return "Basis({})".format(str(self.expr))
+
     def _get_expression(self):
         """Get the symbolic expression for the basis"""
         # Generate the term orders
