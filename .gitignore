@@ -8,4 +8,5 @@ schism/__pycache__
 schism/geometry/__pycache__
 schism/utils/__pycache__
 schism/conditions/__pycache__
+schism/basic/__pycache__
 tests/__pycache__
