@@ -1,8 +1,11 @@
 """Immersed boundary object forming the core API"""
 
+import devito as dv
+
 from schism.geometry.skin import ModifiedSkin
 
 __all__ = ['Boundary']
+
 
 class Boundary:
     """
@@ -48,6 +51,8 @@ class Boundary:
         """
         subs = {}  # Dict of substitutions
         for deriv in derivs:
+            if not isinstance(deriv.expr, dv.Function):
+                raise TypeError("Substituted derivatives must be of functions")
             skin = ModifiedSkin(deriv, self.geometry)
 
     @property
