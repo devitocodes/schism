@@ -1,7 +1,8 @@
 """Immersed boundary object forming the core API"""
 
-__all__ = ['Boundary']
+from schism.geometry.skin import ModifiedSkin
 
+__all__ = ['Boundary']
 
 class Boundary:
     """
@@ -22,16 +23,51 @@ class Boundary:
         function at some point. Can be set to 'expand' to expand the support
         region in these cases, or 'reduce' to reduce the order of the
         polynomial basis. Default is 'expand'.
+
+    Methods
+    -------
+    substitutions(derivs)
+        Get the substitution for the specified derivative. This will return
+        the modified stencils that should replace the standard ones.
     """
     def __init__(self, conditions, geometry, **kwargs):
-        self.has_1D_basis = kwargs.get('has_1D_basis', False)
-        self.strategy = kwargs.get('strategy', 'expand')
+        self._has_1D_basis = kwargs.get('has_1D_basis', False)
+        self._strategy = kwargs.get('strategy', 'expand')
+        self._conditions = conditions
+        self._geometry = geometry
 
-        self._setup_basis()
+    def substitutions(self, derivs):
+        """
+        Get the substitution for the specified derivative. This will return
+        the modified stencils that should replace the standard ones.
 
-    def _setup_basis(self):
+        Parameters
+        ----------
+        derivs : tuple
+            Derivatives to be substituted
         """
-        Set up the basis functions given boundary conditions supplied and the
-        specification.
+        subs = {}  # Dict of substitutions
+        for deriv in derivs:
+            skin = ModifiedSkin(deriv, self.geometry)
+
+    @property
+    def has_1D_basis(self):
+        """Does boundary use 1D basis functions?"""
+        return self._has_1D_basis
+
+    @property
+    def strategy(self):
         """
-        return 0  # Dummy function for now until I decide how it works
+        Strategy to use when insufficient information available to fit basis.
+        """
+        return self._strategy
+
+    @property
+    def conditions(self):
+        """Boundary conditions attached to the surface"""
+        return self._conditions
+
+    @property
+    def geometry(self):
+        """Gemetry data for the boundary"""
+        return self._geometry

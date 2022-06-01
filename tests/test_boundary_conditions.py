@@ -4,7 +4,7 @@ import devito as dv
 import sympy as sp
 
 from schism import BoundaryConditions
-from schism.conditions.boundary_conditions import BoundaryCondition
+from schism.conditions.boundary_conditions import SingleCondition
 from collections import Counter
 from itertools import combinations
 
@@ -57,21 +57,21 @@ class TestBCs:
     @pytest.mark.parametrize('eqs, funcs, ans',
                              [([dv.Eq(f, 0), dv.Eq(f.laplace, 0)],
                                None,
-                               (BoundaryCondition(dv.Eq(f, 0)),
-                                BoundaryCondition(dv.Eq(f.laplace, 0)))),
+                               (SingleCondition(dv.Eq(f, 0)),
+                                SingleCondition(dv.Eq(f.laplace, 0)))),
                               ([dv.Eq(f, 0), dv.Eq(f.laplace, 0),
                                 dv.Eq(dv.div(v), 0)],
                                None,
-                               (BoundaryCondition(dv.Eq(f, 0)),
-                                BoundaryCondition(dv.Eq(f.laplace, 0)),
-                                BoundaryCondition(dv.Eq(dv.div(v), 0)))),
+                               (SingleCondition(dv.Eq(f, 0)),
+                                SingleCondition(dv.Eq(f.laplace, 0)),
+                                SingleCondition(dv.Eq(dv.div(v), 0)))),
                               ([dv.Eq(tau*v, sp.Matrix([0., 0.]))],
                                (tau,),
-                               (BoundaryCondition(dv.Eq(v[0]*tau[0, 0]
+                               (SingleCondition(dv.Eq(v[0]*tau[0, 0]
                                                   + v[1]*tau[0, 1], 0),
                                                   funcs=(tau[0, 0], tau[0, 1],
                                                          tau[1, 1])),
-                                BoundaryCondition(dv.Eq(v[0]*tau[1, 0]
+                                SingleCondition(dv.Eq(v[0]*tau[1, 0]
                                                   + v[1]*tau[1, 1], 0),
                                                   funcs=(tau[0, 0], tau[0, 1],
                                                          tau[1, 1]))))])
@@ -108,7 +108,7 @@ class TestBCs:
 
 
 class TestBC:
-    """Tests for the BoundaryCondition object"""
+    """Tests for the SingleCondition object"""
 
     grid = dv.Grid(shape=(11, 11), extent=(10., 10.))
     x, y = grid.dimensions
@@ -147,7 +147,7 @@ class TestBC:
         Check that functions within the boundary condition are correctly
         identified.
         """
-        condition = BoundaryCondition(bc, funcs=funcs)
+        condition = SingleCondition(bc, funcs=funcs)
 
         assert Counter(condition.funcs) == Counter(ans)
 
@@ -162,6 +162,6 @@ class TestBC:
                               (dv.Eq(f+h.dxdy, 0), (x, y))])
     def test_derivative_dims(self, bc, ans):
         """Check that derivative directions correctly identified"""
-        condition = BoundaryCondition(bc)
+        condition = SingleCondition(bc)
 
         assert Counter(condition.dims) == Counter(ans)

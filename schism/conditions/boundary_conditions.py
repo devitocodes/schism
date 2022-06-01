@@ -9,7 +9,7 @@ from devito.symbolics import retrieve_functions
 from devito.tools.data_structures import frozendict
 
 
-class BoundaryCondition:
+class SingleCondition:
     """
     A single boundary condition imposed on some immersed surface
 
@@ -56,10 +56,10 @@ class BoundaryCondition:
             return False
 
     def __str__(self):
-        return "BoundaryCondition({})".format(str(self.equation))
+        return "SingleCondition({})".format(str(self.equation))
 
     def __repr__(self):
-        return "BoundaryCondition({})".format(str(self.equation))
+        return "SingleCondition({})".format(str(self.equation))
 
     def _parse_rhs(self):
         """Parse and process the RHS of the equation"""
@@ -144,14 +144,14 @@ class ConditionGroup:
     Parameters
     ----------
     conditions : tuple
-        BoundaryCondition objects in the group
+        SingleCondition objects in the group
     funcs : tuple
         Functions that define the group
 
     Attributes
     ----------
     conditions : tuple
-        BoundaryCondition objects in the group
+        SingleCondition objects in the group
     funcs : tuple
         Functions that define the group
     dimension_map : dict
@@ -169,7 +169,7 @@ class ConditionGroup:
 
     @property
     def conditions(self):
-        """BoundaryCondition objects in the group"""
+        """SingleCondition objects in the group"""
         return self._conds
 
     @property
@@ -195,7 +195,7 @@ class BoundaryConditions:
     equations : tuple
         Equalities to be imposed on the surface
     conditions : tuple
-        BoundaryCondition objects for each boundary condition
+        SingleCondition objects for each boundary condition
     groups : tuple
         Groups of boundary conditions which are connected by the functions
         used within them
@@ -215,7 +215,7 @@ class BoundaryConditions:
         self._flatten_functions(funcs)
         # Create the equations tuple, flattening equations
         self._flatten_equations(eqs)
-        # Set up the BoundaryCondition objects for each equation
+        # Set up the SingleCondition objects for each equation
         self._setup_bcs()
         # Set up the groups using networkx
         self._group_bcs()
@@ -249,8 +249,8 @@ class BoundaryConditions:
         self._eqs = tuple(eq_set)
 
     def _setup_bcs(self):
-        """Set up a BoundaryCondition object for each equation"""
-        self._bcs = [BoundaryCondition(eq, funcs=self.funcs)
+        """Set up a SingleCondition object for each equation"""
+        self._bcs = [SingleCondition(eq, funcs=self.funcs)
                      for eq in self.equations]
 
     def _group_bcs(self):
@@ -291,7 +291,7 @@ class BoundaryConditions:
 
     @property
     def bcs(self):
-        """BoundaryCondition for each equation"""
+        """SingleCondition for each equation"""
         return self._bcs
 
     @property
