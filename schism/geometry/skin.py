@@ -15,7 +15,7 @@ def stencil_footprint(deriv):
             spans.append(np.zeros(1))
     msh = np.meshgrid(*spans, indexing='xy')
     stack = [m.flatten() for m in msh]
-    return np.vstack(stack)
+    return np.vstack(stack).astype(int)
 
 
 class ModifiedSkin:
@@ -46,7 +46,28 @@ class ModifiedSkin:
 
     def _get_points(self):
         """Get the points at which modified operators are required"""
-        b_points = self.geometry.boundary_points
+        bp = np.array(self.geometry.boundary_points)
+        fp = stencil_footprint(self.deriv)
+
+        # Get all the modified points from stencil span and boundary points
+        mp = bp[:, :, np.newaxis] + fp[:, np.newaxis, :]
+        mp = mp.reshape((bp.shape[0], -1))
+
+        # Filter duplicates
+        mp = np.unique(mp, axis=1)
+
+        # Trim off points outside domain
+        grid = self.geometry.grid
+        for dim in range(mp.shape[0]):
+            mask =  np.logical_and(mp[dim]>=0, mp[dim]<grid.shape[dim])
+            mp = mp[:, mask]
+
+        # Get the intersection with the interior
+        all_points = tuple([mp[i] for i in range(mp.shape[0])])
+        interior_mask = self.geometry.interior_mask[all_points]
+        mp = mp[:, interior_mask]
+
+        self._mod_points = tuple([mp[i] for i in range(mp.shape[0])])
 
     @property
     def deriv(self):
@@ -57,3 +78,8 @@ class ModifiedSkin:
     def geometry(self):
         """The geometry of the boundary"""
         return self._geometry
+
+    @property
+    def modified_points(self):
+        """Points where the derivative stencil will be modified"""
+        return self._mod_points
