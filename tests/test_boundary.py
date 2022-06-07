@@ -49,7 +49,6 @@ class TestSubstitutions:
         group = boundary._get_filtered_group(deriv)
         # Get the basis map
         basis_map = boundary._get_basis_map(deriv, group)
-        print(basis_map)
         # Check that all functions are present
         assert Counter(group.funcs) == Counter(basis_map.keys())
         # Check that each basis function maps between the expected dimensions
@@ -61,8 +60,35 @@ class TestSubstitutions:
             else:
                 assert basis_map[func].dims == func.space_dimensions
 
-    def test_filtered_group(self):
+    @pytest.mark.parametrize('bcs, has_1D_basis, deriv',
+                             [([dv.Eq(f, 0), dv.Eq(f.dx2, 0), dv.Eq(f.dy2, 0)],
+                               True, f.dx2),
+                              ([dv.Eq(f, 0), dv.Eq(f.dx2, 0), dv.Eq(f.dy2, 0)],
+                                True, f.dy2),
+                              ([dv.Eq(f, 0), dv.Eq(f.laplace, 0)],
+                               False, f.dx2),
+                              ([dv.Eq(f, 0), dv.Eq(f.laplace, 0)],
+                               False, f.dx2),
+                              ([dv.Eq(f, 0), dv.Eq(f.laplace, 0)],
+                               False, f.dy2)])
+    def test_filtered_group(self, bcs, has_1D_basis, deriv):
         """
         Check that _get_filtered_group() returns the correctly filtered group.
         """
-        return 0  # Placeholder
+        # Create BoundaryConditions
+        bcs = BoundaryConditions(bcs)
+        # Create a Boundary (use a dummy BoundaryGeometry)
+        boundary = Boundary(bcs, [], has_1D_basis=has_1D_basis)
+        # Get the group
+        group = boundary._get_filtered_group(deriv)
+        unfiltered_group = boundary.conditions.get_group(deriv.expr)
+        filtered_group = unfiltered_group.filter(deriv.dims[0])
+
+        # Check that setups with 1D basis produce filtered results
+        if has_1D_basis:
+            assert group.conditions != unfiltered_group.conditions
+            assert group.conditions == filtered_group.conditions
+        # Check that setups with ND basis produce unfiltered results
+        else:
+            assert group.conditions != filtered_group.conditions
+            assert group.conditions == unfiltered_group.conditions
