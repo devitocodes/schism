@@ -24,7 +24,7 @@ class Basis:
     ----------
     name : str
         Label for the basis
-    dimensions : tuple
+    dims : tuple
         Basis dimensions
     order : int
         Maximum order of the series

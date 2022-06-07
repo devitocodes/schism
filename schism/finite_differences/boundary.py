@@ -3,6 +3,7 @@
 import devito as dv
 
 from schism.geometry.skin import ModifiedSkin
+from schism.basic.basis import Basis
 from devito.tools.data_structures import frozendict
 
 __all__ = ['Boundary']
@@ -56,16 +57,25 @@ class Boundary:
                 raise TypeError("Substituted derivatives must be of functions")
             skin = ModifiedSkin(deriv, self.geometry)
 
-            group = self.conditions.get_group(deriv.expr)
-            if self.has_1D_basis:
-                if len(deriv.dims) != 1:
-                    errmsg = "Only 1D derivatives can be taken with 1D basis"
-                    raise ValueError(errmsg)
-                group = group.filter(deriv.dims[0])
+            group = self._get_filtered_group(deriv)
 
             # Form the basis map given the group of bcs and the derivative
             # to be approximated
             basis_map = self._get_basis_map(deriv, group)
+
+
+    def _get_filtered_group(self, deriv):
+        """
+        Get the BC group filtered to BCs corresponding with specified
+        derivative.
+        """
+        group = self.conditions.get_group(deriv.expr)
+        if self.has_1D_basis:
+            if len(deriv.dims) != 1:
+                errmsg = "Only 1D derivatives can be taken with 1D basis"
+                raise ValueError(errmsg)
+            group = group.filter(deriv.dims[0])
+        return group
 
     def _get_basis_map(self, deriv, group):
         """
@@ -74,14 +84,14 @@ class Boundary:
         map = {}
         if self.has_1D_basis:
             for func in group.funcs:
-                # Append a b for basis to the name
-                map[func] = Basis(name=func.name+'_b', dims=deriv.dims,
-                                  order=function.space_order)
+                map[func] = Basis(name=func.name+'_'+deriv.dims[0].name,
+                                  dims=deriv.dims,
+                                  order=func.space_order)
         else:  # N-D basis
             for func in group.funcs:
-                map[func] = Basis(name=func.name+'_b',
-                                  dims=function.space_dimensions,
-                                  order=function.space_order)
+                map[func] = Basis(name=func.name,
+                                  dims=func.space_dimensions,
+                                  order=func.space_order)
 
         # Return a frozendict as doesn't want to be mutable
         return frozendict(map)
