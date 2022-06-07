@@ -156,6 +156,12 @@ class ConditionGroup:
         Functions that define the group
     dimension_map : dict
         Mapping between dimensions and valid BCs for that dimension
+
+    Methods
+    -------
+    filter(dim)
+        Returns a ConditionGroup containing boundary conditions which only have
+        derivatives in the specified dimension or none at all.
     """
     def __init__(self, conditions, funcs):
         self._conds = conditions
@@ -166,6 +172,18 @@ class ConditionGroup:
 
     def __repr__(self):
         return "ConditionGroup{}".format(str(self.funcs))
+
+    def filter(self, dim):
+        """
+        Return a ConditionGroup containing boundary conditions which only
+        contain derivatives in the specified dimension or no derivatives.
+        """
+        # Filtered conditions
+        f_conds = [cond for cond in self.conditions
+                   if cond.dims == (dim,) or cond.dims is None]
+        # Functions don't need filtering as 1D bcs will end up in separate
+        # groups
+        return self.__class__(f_conds, self.funcs)
 
     @property
     def conditions(self):
@@ -270,7 +288,7 @@ class BoundaryConditions:
         bc_groups = []
         f_map = {}
         for group in f_groups:
-            conditions = [bc for bc in self.bcs if bc.funcs[0] in group]
+            conditions = tuple([bc for bc in self.bcs if bc.funcs[0] in group])
             new_group = ConditionGroup(conditions, group)
             bc_groups.append(new_group)
             for func in group:

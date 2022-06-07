@@ -4,7 +4,8 @@ import devito as dv
 import sympy as sp
 
 from schism import BoundaryConditions
-from schism.conditions.boundary_conditions import SingleCondition
+from schism.conditions.boundary_conditions import (SingleCondition,
+                                                   ConditionGroup)
 from collections import Counter
 from itertools import combinations
 
@@ -165,3 +166,32 @@ class TestBC:
         condition = SingleCondition(bc)
 
         assert Counter(condition.dims) == Counter(ans)
+
+
+class TestGroup:
+    """Tests for the ConditionGroup object"""
+    grid = dv.Grid(shape=(11, 11), extent=(10., 10.))
+    x, y = grid.dimensions
+    f = dv.TimeFunction(name='f', grid=grid, space_order=4)
+
+    #  Test with 1D approximations of free-surface conditions
+    # 'Pressure free-surface' bcs
+    bc_list_f = [dv.Eq(f, 0), dv.Eq(f.dx2, 0), dv.Eq(f.dy2, 0),
+                 dv.Eq(f.dx4, 0), dv.Eq(f.dy4, 0)]
+    bcs_f = tuple(SingleCondition(bc) for bc in bc_list_f)
+
+    @pytest.mark.parametrize('bcs, funcs, dim, ans',
+                             [(bcs_f, (f,), x,
+                               (dv.Eq(f, 0), dv.Eq(f.dx2, 0),
+                                dv.Eq(f.dx4, 0))),
+                              (bcs_f, (f,), y,
+                               (dv.Eq(f, 0), dv.Eq(f.dy2, 0),
+                                dv.Eq(f.dy4, 0)))])
+    def test_filtering(self, bcs, funcs, dim, ans):
+        """Check that filtering bcs returns the correct subset of conditions"""
+        # Check correct conditions are left in filtered condition
+        group = ConditionGroup(bcs, funcs)
+        filtered = group.filter(dim)
+        filtered_eqs = tuple([bc.equation for bc in filtered.conditions])
+
+        assert filtered_eqs == ans
