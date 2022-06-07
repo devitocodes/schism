@@ -3,6 +3,7 @@
 import devito as dv
 
 from schism.geometry.skin import ModifiedSkin
+from devito.tools.data_structures import frozendict
 
 __all__ = ['Boundary']
 
@@ -54,6 +55,36 @@ class Boundary:
             if not isinstance(deriv.expr, dv.Function):
                 raise TypeError("Substituted derivatives must be of functions")
             skin = ModifiedSkin(deriv, self.geometry)
+
+            group = self.conditions.get_group(deriv.expr)
+            if self.has_1D_basis:
+                if len(deriv.dims) != 1:
+                    errmsg = "Only 1D derivatives can be taken with 1D basis"
+                    raise ValueError(errmsg)
+                group = group.filter(deriv.dims[0])
+
+            # Form the basis map given the group of bcs and the derivative
+            # to be approximated
+            basis_map = self._get_basis_map(deriv, group)
+
+    def _get_basis_map(self, deriv, group):
+        """
+        Return a dict mapping functions onto their respective basis functions.
+        """
+        map = {}
+        if self.has_1D_basis:
+            for func in group.funcs:
+                # Append a b for basis to the name
+                map[func] = Basis(name=func.name+'_b', dims=deriv.dims,
+                                  order=function.space_order)
+        else:  # N-D basis
+            for func in group.funcs:
+                map[func] = Basis(name=func.name+'_b',
+                                  dims=function.space_dimensions,
+                                  order=function.space_order)
+
+        # Return a frozendict as doesn't want to be mutable
+        return frozendict(map)
 
     @property
     def has_1D_basis(self):
