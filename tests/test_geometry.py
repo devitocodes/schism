@@ -72,13 +72,6 @@ class TestBoundaryGeometry:
 
         normals = [bg.n[i].data[slices][mask] for i in range(len(spacing))]
 
-        # Start by just printing them
-        print(bg.positions)
-        assert False
-
-        # Start by just printing them
-        print(bg.positions)
-        assert False
         for i in range(len(normals)):
             assert np.all(np.isclose(normals[i], answer[i], rtol=rtol))
 
