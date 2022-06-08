@@ -1,0 +1,22 @@
+name: Cancel
+
+on: [push]
+
+jobs:
+  cancel:
+    name: 'Cancel Previous Runs'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Cancel the core CI workflow
+        uses: styfle/cancel-workflow-action@0.4.0
+        with:
+          # Ids to cancel core
+          # https://api.github.com/repos/devitocodes/devitoboundary/actions/workflows
+          workflow_id: 2468423
+          access_token: ${{ github.token }}
+      - name: Cancel the 1st-order CI workflow
+        uses: styfle/cancel-workflow-action@0.4.0
+        with:
+          workflow_id: 14634840
+          access_token: ${{ github.token }}
