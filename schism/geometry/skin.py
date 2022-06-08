@@ -59,7 +59,7 @@ class ModifiedSkin:
         # Trim off points outside domain
         grid = self.geometry.grid
         for dim in range(mp.shape[0]):
-            mask =  np.logical_and(mp[dim]>=0, mp[dim]<grid.shape[dim])
+            mask = np.logical_and(mp[dim] >= 0, mp[dim] < grid.shape[dim])
             mp = mp[:, mask]
 
         # Get the intersection with the interior
