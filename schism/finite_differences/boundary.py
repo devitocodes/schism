@@ -4,6 +4,7 @@ import devito as dv
 
 from schism.geometry.skin import ModifiedSkin
 from schism.basic.basis import Basis
+from schism.finite_differences.substitution import Substitution
 from devito.tools.data_structures import frozendict
 
 __all__ = ['Boundary']
@@ -63,6 +64,8 @@ class Boundary:
             # to be approximated
             basis_map = self._get_basis_map(deriv, group)
 
+            substitution = Substitution(deriv, group, basis_map, self.strategy,
+                                        skin)
 
     def _get_filtered_group(self, deriv):
         """
