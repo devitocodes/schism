@@ -78,4 +78,26 @@ class TestSupport:
             assert np.all(np.sqrt(sum([fp[i]**2 for i in range(ndims)]))
                           < s_o//2 + inc + 0.5)
 
-    # Test mismatched orders + radii
+    @pytest.mark.parametrize('s_o',
+                             [2, 4, 6, 8])
+    def test_mismatched_sizes(self, s_o):
+        """
+        Test to check that using basis functions of different spans works as
+        expected.
+        """
+        grid = dv.Grid(shape=(11, 11), extent=(10., 10.))
+        f = dv.TimeFunction(name='f', grid=grid, space_order=s_o)
+        g = dv.TimeFunction(name='g', grid=grid, space_order=s_o+2)
+
+        basis_map = {f: Basis('f', grid.dimensions, f.space_order),
+                     g: Basis('g', grid.dimensions, g.space_order)}
+
+        radius_map = {f: f.space_order//2, g: g.space_order//2}
+
+        sr = SupportRegion(basis_map, radius_map)
+
+        for dim in range(2):
+            assert np.amin(sr.footprint_map[f]) == -s_o//2
+            assert np.amax(sr.footprint_map[f]) == s_o//2
+            assert np.amin(sr.footprint_map[g]) == -1-s_o//2
+            assert np.amax(sr.footprint_map[g]) == 1+s_o//2
