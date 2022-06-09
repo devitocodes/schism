@@ -39,7 +39,7 @@ class SupportRegion:
             raise ValueError("Mismatch in functions supplied")
 
         for func in self.basis_map:
-            if self.basis_map[func].dims == func.grid.space_dimensions:
+            if self.basis_map[func].dims == func.space_dimensions:
                 # N-D basis so N-D support region
                 footprint = self._get_circle_support(func)
             else:
@@ -55,7 +55,7 @@ class SupportRegion:
         """Get the footprint of a circular support region"""
         # Essentially makes a square then cookie-cutters it
         radius = self.radius_map[func]
-        dims = func.grid.space_dimensions
+        dims = func.space_dimensions
         ndims = len(dims)
         # Make a meshgrid of indices (of int type)
         msh = np.meshgrid(*[np.arange(-radius, radius+1, dtype=int)
@@ -75,9 +75,9 @@ class SupportRegion:
         footprint = []
         basis = self.basis_map[func]
         radius = self.radius_map[func]
-        for dim in func.grid.space_dimensions:
+        for dim in func.space_dimensions:
             if dim in basis.dims:
-                footprint.append(np.arange(-radius, radius+1))
+                footprint.append(np.arange(-radius, radius+1, dtype=int))
             else:  # No offset in other dimensions
                 footprint.append(np.zeros(1+2*radius))
         return tuple(footprint)
@@ -91,3 +91,10 @@ class SupportRegion:
     def radius_map(self):
         """Mapping between functions and the radius of their basis"""
         return self._radius_map
+
+    @property
+    def footprint_map(self):
+        """
+        Mapping between functions and the footprint of their support region.
+        """
+        return self._footprint_map
