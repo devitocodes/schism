@@ -79,7 +79,7 @@ class SupportRegion:
             if dim in basis.dims:
                 footprint.append(np.arange(-radius, radius+1, dtype=int))
             else:  # No offset in other dimensions
-                footprint.append(np.zeros(1+2*radius))
+                footprint.append(np.zeros(1+2*radius, dtype=int))
         return tuple(footprint)
 
     @property

@@ -3,6 +3,8 @@ Objects for fitting of polynomial basis funtions and projection onto the
 interior stencil.
 """
 
+import sympy as sp
+
 
 class MultiInterpolant:
     """
@@ -63,3 +65,52 @@ class MultiProjection:
     def projections(self):
         """Projection objects attached to the MultiProjection"""
         return tuple(self._projections)
+
+
+class Interpolant:
+    """
+    Encapsulates the fitting of a set of polynomial basis functions to interior
+    values and boundary conditions.
+
+    Parameters
+    ----------
+    support : SupportRegion
+        The support region used to fit this basis
+    """
+    def __init__(self, support):
+        self._support = support
+        self._get_interior_vector()
+
+    def _get_interior_vector(self):
+        """
+        Generate the vector of interior points corresponding with the support
+        region.
+        """
+        footprint_map = self.support.footprint_map
+        # Needs to be an index notation like f[t, x-1, y+1]
+        vec = []
+        # Loop over functions
+        for func in footprint_map:
+            # Get the space and time dimensions of that function
+            t = func.time_dim
+            dims = func.space_dimensions
+            footprint = footprint_map[func]
+            # Create entry for each point in the support region
+            for point in range(len(footprint[0])):
+                space_ind = [dims[dim]+footprint[dim][point]
+                             for dim in range(len(dims))]
+                ind = (t,) + tuple(space_ind)
+                vec.append(func[ind])
+
+        # Make this a sympy Matrix
+        self._interior_vector = sp.Matrix(vec)
+
+    @property
+    def support(self):
+        """The support region used to fit the basis"""
+        return self._support
+
+    @property
+    def interior_vector(self):
+        """The vector of interior points corresponding to the support region"""
+        return self._interior_vector
