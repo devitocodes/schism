@@ -4,7 +4,40 @@ import sympy as sp
 from itertools import product
 from functools import reduce
 
-__all__ = ['Basis']
+__all__ = ['Basis', 'row_from_expr']
+
+
+def row_from_expr(expr, funcs, basis_map, additional_params=None):
+    """
+    Generate a matrix row corresponding with some expression, where the LHS
+    vector contains the derivative expressions.
+
+    Parameters
+    expr : Mul
+        The symbolic expression
+    funcs : tuple
+        The functions in the expression
+    basis_map : dict
+        The basis functions corresponding with those functions. Used to get the
+        derivative placeholders and terms
+    additional_params : tuple
+        Additional parameters on top of the dimensions of the function. These
+        are generally coefficients introduced by boundary conditions.
+    """
+    prelim_row = []
+    for func in funcs:
+        basis = basis_map[func]
+        for term in basis.terms:
+            prelim_row.append(expr.coeff(basis.d[term]))
+    row = sp.Matrix(prelim_row)
+    # Parameters are the grid dimensions (should be same for all)
+    params = tuple([dim for dim in funcs[0].space_dimensions])
+
+    if additional_params is not None:
+        params += tuple(additional_params)
+
+    # FIXME: Constant values need to be turned into arrays when supplied with array input
+    return sp.lambdify(params, row, 'numpy')
 
 
 class Basis:
