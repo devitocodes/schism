@@ -11,7 +11,13 @@ from schism.geometry.support_region import SupportRegion
 from schism.finite_differences.interpolate_project import Interpolant
 
 
-class TestInterpolation:
+class DummyGroup:
+    """Dummy class as a placeholder for ConditionGroup"""
+    def __init__(self, funcs):
+        self.funcs = funcs
+
+
+class TestInterpolant:
     """Tests for the Interpolant object"""
 
     @pytest.mark.parametrize('ndims, basis_dim',
@@ -33,6 +39,7 @@ class TestInterpolation:
         # Need to create one or two functions
         funcs = [dv.TimeFunction(name='f'+str(i), grid=grid, space_order=s_o)
                  for i in range(nfuncs)]
+        group = DummyGroup(tuple(funcs))
         if basis_dim is None:
             basis_map = {func: Basis(func.name, grid.dimensions, s_o)
                          for func in funcs}
@@ -45,7 +52,7 @@ class TestInterpolation:
         # Create a SupportRegion
         support = SupportRegion(basis_map, radius_map)
         # Create the Interpolant
-        interpolant = Interpolant(support)
+        interpolant = Interpolant(support, group)
         # Check the interior vector has the correct length
         if basis_dim is None:
             check_len = sum([len(support.footprint_map[func][0])
@@ -54,11 +61,47 @@ class TestInterpolation:
             check_len = nfuncs*(s_o+1)
         assert len(interpolant.interior_vector) == check_len
 
-    def test_interior_vector_contents(self):
+    answers = ['Matrix([[f0[t, x - 1]], [f0[t, x]], [f0[t, x + 1]]])',
+               'Matrix([[f0[t, x - 1]], [f0[t, x]], [f0[t, x + 1]], '
+               + '[f1[t, x - 1]], [f1[t, x]], [f1[t, x + 1]]])',
+               'Matrix([[f0[t, x - 1, y - 1]], [f0[t, x, y - 1]], '
+               + '[f0[t, x + 1, y - 1]], [f0[t, x - 1, y]], [f0[t, x, y]], '
+               + '[f0[t, x + 1, y]], [f0[t, x - 1, y + 1]], '
+               + '[f0[t, x, y + 1]], [f0[t, x + 1, y + 1]]])',
+               'Matrix([[f0[t, x - 1, y]], [f0[t, x, y]], [f0[t, x + 1, y]]])',
+               'Matrix([[f0[t, x, y - 1]], [f0[t, x, y]], [f0[t, x, y + 1]]])',
+               'Matrix([[f0[t, x - 1, y, z]], [f0[t, x, y, z]], '
+               + '[f0[t, x + 1, y, z]]])']
+
+    @pytest.mark.parametrize('ndims, basis_dim, nfuncs, ans',
+                             [(1, None, 1, answers[0]),
+                              (1, None, 2, answers[1]),
+                              (2, None, 1, answers[2]),
+                              (2, 0, 1, answers[3]),
+                              (2, 1, 1, answers[4]),
+                              (3, 0, 1, answers[5])])
+    def test_interior_vector_contents(self, ndims, basis_dim, nfuncs, ans):
         """Check that the interior vector is correctly generated"""
         # Create a grid
-        # Create one or two functions
+        shape = tuple([11 for dim in range(ndims)])
+        extent = tuple([10. for dim in range(ndims)])
+        grid = dv.Grid(shape=shape, extent=extent)
+        funcs = [dv.TimeFunction(name='f'+str(i), grid=grid, space_order=2)
+                 for i in range(nfuncs)]
+        group = DummyGroup(tuple(funcs))
+        if basis_dim is None:
+            basis_map = {func: Basis(func.name, grid.dimensions, 2)
+                         for func in group.funcs}
+        else:
+            basis_map = {func: Basis(func.name,
+                                     (grid.dimensions[basis_dim],),
+                                     2)
+                         for func in group.funcs}
+        radius_map = {func: 1 for func in group.funcs}
         # Create a SupportRegion
+        support = SupportRegion(basis_map, radius_map)
         # Create the Interpolant
+        # Create the Interpolant
+        interpolant = Interpolant(support, group)
         # Check the interior vector matches the answer
-        return 0  # Placeholder
+        assert str(interpolant.interior_vector) == ans

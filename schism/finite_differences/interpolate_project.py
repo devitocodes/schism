@@ -77,8 +77,9 @@ class Interpolant:
     support : SupportRegion
         The support region used to fit this basis
     """
-    def __init__(self, support):
+    def __init__(self, support, group):
         self._support = support
+        self._group = group
         self._get_interior_vector()
 
     def _get_interior_vector(self):
@@ -86,11 +87,13 @@ class Interpolant:
         Generate the vector of interior points corresponding with the support
         region.
         """
+        # FIXME: Function order needs to be made consistent
+        # FIXME: Apply some kind of sort to the functions before looping
         footprint_map = self.support.footprint_map
         # Needs to be an index notation like f[t, x-1, y+1]
         vec = []
         # Loop over functions
-        for func in footprint_map:
+        for func in self.group.funcs:
             # Get the space and time dimensions of that function
             t = func.time_dim
             dims = func.space_dimensions
@@ -109,6 +112,11 @@ class Interpolant:
     def support(self):
         """The support region used to fit the basis"""
         return self._support
+
+    @property
+    def group(self):
+        """The boundary condition group"""
+        return self._group
 
     @property
     def interior_vector(self):
