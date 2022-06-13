@@ -1,12 +1,28 @@
 """Tests for the generation of basis functions"""
 
 import pytest
+import os
 import devito as dv
 import sympy as sp
 import numpy as np
 
 from schism.basic import Basis, row_from_expr
 from functools import reduce
+from itertools import product
+
+
+def corner_points(ndims, basis_dim, size):
+    """
+    Returns points at the corners of some line/square/cube of a specified
+    size.
+    """
+    if basis_dim is None:
+        combinations = product([-size, size], repeat=ndims)
+        points = np.array([c for c in combinations])
+        return tuple([points[:, dim] for dim in range(ndims)])
+    else:
+        return tuple([np.array([-size, size]) if dim == basis_dim
+                      else np.zeros(2) for dim in range(ndims)])
 
 
 class TestBasis:
@@ -69,10 +85,6 @@ class TestRowFromExpression:
         correctly converted into a lambdified function, returning the correct
         values.
         """
-
-        setup_str = "Ndims={}, Basis dim={}, Function position={}, order={}"
-        print(setup_str.format(ndims, basis_dim, func_pos, s_o))
-
         # Create a grid with some dimensionality
         shape = tuple([11 for dim in range(ndims)])
         extent = tuple([10. for dim in range(ndims)])
@@ -102,8 +114,15 @@ class TestRowFromExpression:
         rowfunc = row_from_expr(basisf.expr, funcs, basis_map)
 
         # Need to generate some points to check the function at
-        points = [np.arange(-1, 2) for dim in grid.dimensions]
+        points = corner_points(ndims, basis_dim, 2)
 
-        print(rowfunc(*points))
+        rows = rowfunc(*points)
 
-        assert False
+        path = os.path.dirname(os.path.abspath(__file__))
+        fname = path + '/basis_test_results/' + str(ndims) + str(basis_dim) \
+            + str(func_pos) + str(s_o) + '.npy'
+
+        answer = np.load(fname)  # Load the answer
+
+        # Check against answer
+        assert np.all(np.isclose(rows, answer))

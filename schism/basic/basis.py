@@ -1,6 +1,7 @@
 """The symbolic basis"""
 
 import sympy as sp
+import numpy as np
 from itertools import product
 from functools import reduce
 
@@ -13,6 +14,7 @@ def row_from_expr(expr, funcs, basis_map, additional_params=None):
     vector contains the derivative expressions.
 
     Parameters
+    ----------
     expr : Mul
         The symbolic expression
     funcs : tuple
@@ -23,21 +25,52 @@ def row_from_expr(expr, funcs, basis_map, additional_params=None):
     additional_params : tuple
         Additional parameters on top of the dimensions of the function. These
         are generally coefficients introduced by boundary conditions.
+
+    Returns
+    -------
+    rowfunc : function
+        Python function evaluating the matrix row. Note that to work around
+        a SymPy broadcasting bug, the first two arguments should be set to 0
+        for scalar values or np.zeros(shape) for arrays.
     """
+
     prelim_row = []
     for func in funcs:
         basis = basis_map[func]
         for term in basis.terms:
             prelim_row.append(expr.coeff(basis.d[term]))
+
+    # Need to add a dummy symbol and pass this as an argument
+    # This is a workaround for SymPy issue #5642 to make the generated
+    # function broadcast correctly for constant expressions
+    dumsym = sp.symbols('dumsym')
     row = sp.Matrix(prelim_row)
-    # Parameters are the grid dimensions (should be same for all)
+    row += sp.Matrix([dumsym for i in range(len(prelim_row))])
+    # Would ideally just be row = sp.Matrix(prelim_row)
+    # Parameters are the grid dimensions
     params = tuple([dim for dim in funcs[0].space_dimensions])
 
     if additional_params is not None:
         params += tuple(additional_params)
 
-    # FIXME: Constant values need to be turned into arrays when supplied with array input
-    return sp.lambdify(params, row, 'numpy')
+    # Lambdify generated function with dummy variable to force the casting
+    # We will also squeeze the output to ensure that the output size matches
+    # the input
+    gen_func = sp.lambdify((dumsym,)+params, row, 'numpy')
+
+    def rowfunc(*param_vals):
+        # Shape of the input parameters
+        param_shape = np.shape(param_vals[0])
+        # Check that parameters all have same shape
+        for param in param_vals:
+            if np.shape(param) != param_shape:
+                raise ValueError("Inconsistent parameter array sizes")
+
+        # Generate the matrix rows
+        mat_rows = gen_func(np.zeros(param_shape), *param_vals)
+        return np.squeeze(mat_rows)
+
+    return rowfunc
 
 
 class Basis:
