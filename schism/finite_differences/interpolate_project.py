@@ -4,6 +4,9 @@ interior stencil.
 """
 
 import sympy as sp
+import numpy as np
+
+from schism.basic import row_from_expr
 
 
 class MultiInterpolant:
@@ -76,19 +79,23 @@ class Interpolant:
     ----------
     support : SupportRegion
         The support region used to fit this basis
+    group : ConditionGroup
+        The group of boundary conditions which the function will be fitted to
+    basis_map : dict
+        Mapping between functions and approximating basis functions
     """
-    def __init__(self, support, group):
+    def __init__(self, support, group, basis_map):
         self._support = support
         self._group = group
+        self._basis_map = basis_map
         self._get_interior_vector()
+        self._get_interior_matrix()
 
     def _get_interior_vector(self):
         """
         Generate the vector of interior points corresponding with the support
         region.
         """
-        # FIXME: Function order needs to be made consistent
-        # FIXME: Apply some kind of sort to the functions before looping
         footprint_map = self.support.footprint_map
         # Needs to be an index notation like f[t, x-1, y+1]
         vec = []
@@ -108,6 +115,20 @@ class Interpolant:
         # Make this a sympy Matrix
         self._interior_vector = sp.Matrix(vec)
 
+    def _get_interior_matrix(self):
+        """
+        Generate a master matrix for interior points corresponding with the
+        support region.
+        """
+        submats = []  # Submatrices to be concatenated
+        for func in self.group.funcs:
+            basis = self.basis_map[func]
+            row_func = row_from_expr(basis.expr, self.group.funcs,
+                                     self.basis_map)
+            submats.append(row_func(*self.support.footprint_map[func]))
+        # Will need to do an axis swap in due course
+        self._interior_matrix = np.concatenate(submats, axis=1)
+
     @property
     def support(self):
         """The support region used to fit the basis"""
@@ -119,6 +140,19 @@ class Interpolant:
         return self._group
 
     @property
+    def basis_map(self):
+        """Mapping between functions and approximating basis functions"""
+        return self._basis_map
+
+    @property
     def interior_vector(self):
         """The vector of interior points corresponding to the support region"""
         return self._interior_vector
+
+    @property
+    def interior_matrix(self):
+        """
+        The master matrix of interior points corresponding to the support
+        region.
+        """
+        return self._interior_matrix

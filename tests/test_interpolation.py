@@ -4,7 +4,9 @@ values.
 """
 
 import pytest
+import os
 import devito as dv
+import numpy as np
 
 from schism.basic.basis import Basis
 from schism.geometry.support_region import SupportRegion
@@ -101,7 +103,45 @@ class TestInterpolant:
         # Create a SupportRegion
         support = SupportRegion(basis_map, radius_map)
         # Create the Interpolant
-        # Create the Interpolant
         interpolant = Interpolant(support, group)
         # Check the interior vector matches the answer
         assert str(interpolant.interior_vector) == ans
+
+    @pytest.mark.parametrize('basis_dim, func_type, s_o',
+                             [(None, 'scalar', 2),
+                              (None, 'vector', 2),
+                              (0, 'scalar', 4)])
+    def test_interior_matrix(self, basis_dim, func_type, s_o):
+        """Check that the master interior matrix is correctly generated"""
+        # Create a grid and the specified function type
+        grid = dv.Grid(shape=(11, 11), extent=(10., 10.))
+        if func_type == 'scalar':
+            f = dv.TimeFunction(name='f', grid=grid, space_order=s_o)
+            group = DummyGroup((f,))
+        else:
+            f = dv.VectorTimeFunction(name='f', grid=grid, space_order=s_o)
+            group = DummyGroup((f[0], f[1]))
+
+        if basis_dim is None:
+            basis_map = {func: Basis(func.name, grid.dimensions, s_o)
+                         for func in group.funcs}
+        else:
+            basis_map = {func: Basis(func.name,
+                                     (grid.dimensions[basis_dim],),
+                                     s_o)
+                         for func in group.funcs}
+
+        radius_map = {func: s_o//2 for func in group.funcs}
+
+        # Create a SupportRegion
+        support = SupportRegion(basis_map, radius_map)
+        # Create the Interpolant
+        interpolant = Interpolant(support, group, basis_map)
+
+        path = os.path.dirname(os.path.abspath(__file__))
+        fname = path + '/results/interpolation_test_results/interior_matrix' \
+            + str(basis_dim) + func_type + str(s_o) + '.npy'
+
+        check = np.load(fname)
+
+        assert np.all(np.isclose(interpolant.interior_matrix, check))

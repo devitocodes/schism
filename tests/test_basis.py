@@ -119,8 +119,8 @@ class TestRowFromExpression:
         rows = rowfunc(*points)
 
         path = os.path.dirname(os.path.abspath(__file__))
-        fname = path + '/basis_test_results/' + str(ndims) + str(basis_dim) \
-            + str(func_pos) + str(s_o) + '.npy'
+        fname = path + '/results/basis_test_results/row_from_expr' \
+            + str(ndims) + str(basis_dim) + str(func_pos) + str(s_o) + '.npy'
 
         answer = np.load(fname)  # Load the answer
 
