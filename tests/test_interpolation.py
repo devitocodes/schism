@@ -19,6 +19,20 @@ class DummyGroup:
         self.funcs = funcs
 
 
+class DummyGeometry:
+    """Dummy class as a placeholder for Geometry"""
+    def __init__(self, **kwargs):
+        self.grid = kwargs.get('grid', None)
+        self.interior_mask = kwargs.get('interior_mask', None)
+
+
+class DummySkin:
+    """Dummy class as a placeholder for ModifiedSkin"""
+    def __init__(self, **kwargs):
+        self.geometry = kwargs.get('geometry', None)
+        self.points = kwargs.get('points', None)
+
+
 class TestInterpolant:
     """Tests for the Interpolant object"""
 
@@ -139,9 +153,59 @@ class TestInterpolant:
         interpolant = Interpolant(support, group, basis_map)
 
         path = os.path.dirname(os.path.abspath(__file__))
-        fname = path + '/results/interpolation_test_results/interior_matrix' \
+        fname = path + '/results/interpolation_test_results/interior_matrix/' \
             + str(basis_dim) + func_type + str(s_o) + '.npy'
 
         check = np.load(fname)
 
         assert np.all(np.isclose(interpolant.interior_matrix, check))
+
+    @pytest.mark.parametrize('setup', [0, 1])
+    @pytest.mark.parametrize('func_type', ['scalar', 'vector'])
+    def test_interior_mask(self, setup, func_type):
+        """Check that the interior mask is correctly generated"""
+        grid = dv.Grid(shape=(3, 3), extent=(10., 10.))
+        if func_type == 'scalar':
+            f = dv.TimeFunction(name='f', grid=grid, space_order=2)
+            group = DummyGroup((f,))
+        else:
+            f = dv.VectorTimeFunction(name='f', grid=grid, space_order=2)
+            group = DummyGroup((f[0], f[1]))
+
+        basis_map = {func: Basis(func.name, grid.dimensions, 2)
+                     for func in group.funcs}
+
+        radius_map = {func: 1 for func in group.funcs}
+
+        # Create a SupportRegion
+        support = SupportRegion(basis_map, radius_map)
+
+        # Need to create a ModifiedSkin for the interpolant
+        # Note that dummy objects are used to simplify testing
+
+        if setup == 0:  # Flat surface
+            skin_points = (np.array([0, 1, 2]), np.array([1, 1, 1]))
+            interior_mask = np.zeros(grid.shape, dtype=bool)
+            interior_mask[:, :2] = True
+
+        else:  # Tilted surface
+            skin_points = (np.array([0, 0, 1, 1, 2]),
+                           np.array([2, 1, 1, 0, 0]))
+            interior_mask = np.zeros(grid.shape, dtype=bool)
+            interior = (np.array([0, 0, 1, 0, 1, 2]),
+                        np.array([2, 1, 1, 0, 0, 0]))
+            interior_mask[interior] = True
+
+        geometry = DummyGeometry(grid=grid, interior_mask=interior_mask)
+        skin = DummySkin(geometry=geometry, points=skin_points)
+
+        # Create the Interpolant
+        interpolant = Interpolant(support, group, basis_map, skin)
+
+        path = os.path.dirname(os.path.abspath(__file__))
+        fname = path + '/results/interpolation_test_results/interior_mask/' \
+            + str(setup) + func_type + '.npy'
+
+        check = np.load(fname)
+
+        assert np.all(interpolant.interior_mask == check)

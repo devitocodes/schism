@@ -5,6 +5,42 @@ conditions.
 
 import numpy as np
 from devito.tools.data_structures import frozendict
+from functools import reduce
+
+
+def get_points_and_oob(support_points, skin):
+    """
+    Get the points used by each stencil and a mask indicating where these are
+    out of bounds.
+
+    Parameters
+    ----------
+    support_points : tuple
+        Points in the support region of the stencil
+    skin : ModifiedSkin
+        The skin of points in which the stencil is to be applied
+
+    Returns
+    -------
+    points : tuple
+        Points accessed by the stencil when applied at the modified points
+    oob : ndarray
+        Boolean mask for points. True where points are out of bounds
+    """
+    grid = skin.geometry.grid
+    ndims = len(grid.dimensions)
+    points = tuple([support_points[dim][:, np.newaxis]
+                    + skin.points[dim][np.newaxis, :]
+                    for dim in range(ndims)])
+
+    # Out of bounds points
+    oob = [np.logical_or(points[dim] < 0, points[dim] >= grid.shape[dim])
+           for dim in range(ndims)]
+
+    # If a point is out of bounds in any dimension, then label as oob
+    oob_msk = reduce(np.logical_or, oob)
+
+    return points, oob_msk
 
 
 class SupportRegion:
