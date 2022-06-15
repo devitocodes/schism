@@ -6,6 +6,7 @@ interior stencil.
 import sympy as sp
 import numpy as np
 
+from devito.tools.data_structures import frozendict
 from schism.basic import row_from_expr
 from schism.geometry.support_region import get_points_and_oob
 
@@ -96,7 +97,9 @@ class Interpolant:
         self._geometry = self.skin.geometry
         self._get_interior_vector()
         self._get_interior_matrix()
+        self._get_stencil_points()
         self._get_interior_mask()
+        self._get_boundary_mask()
 
     def _get_interior_vector(self):
         """
@@ -136,10 +139,24 @@ class Interpolant:
         # Will need to do an axis swap in due course
         self._interior_matrix = np.concatenate(submats, axis=1)
 
+    def _get_stencil_points(self):
+        """
+        Get the stencil points associated with each modified point and a mask
+        indicating where these are out of bounds.
+        """
+        sten_pts = {}
+        oob = {}
+        for func in self.group.funcs:
+            support_points = self.support.footprint_map[func]
+            sten_pts[func], oob[func] = get_points_and_oob(support_points,
+                                                           self.skin)
+        self._stencil_points = frozendict(sten_pts)
+        self._oob = frozendict(oob)
+
     def _get_interior_mask(self):
         """
-        For each interior point, create a mask for points in its associated
-        support region.
+        For each modified point, create a mask for points in its associated
+        support region indicating interior points.
         """
         submasks = []
         for func in self.group.funcs:
@@ -147,21 +164,44 @@ class Interpolant:
 
             support_points = self.support.footprint_map[func]
 
-            # Get interior stencil points and mask for where these are oob
-            sten_pts, oob = get_points_and_oob(support_points, self.skin)
-
             interior_msk = np.zeros((len(support_points[0]),
                                      len(self.skin.points[0])), dtype=bool)
-            interior_msk[oob] = True
+            interior_msk[self._oob] = True
 
-            in_bounds = np.logical_not(oob)
+            in_bounds = np.logical_not(self._oob)
             # Stencil points within bounds
-            pts_ib = tuple([sten_pts[dim][in_bounds] for dim in range(ndims)])
+            pts_ib = tuple([self._stencil_points[dim][in_bounds]
+                            for dim in range(ndims)])
             interior_msk[in_bounds] = self.geometry.interior_mask[pts_ib]
 
             submasks.append(interior_msk)
         # (0 axis is support region points)
         self._interior_mask = np.concatenate(submasks)
+
+    def _get_boundary_mask(self):
+        """
+        For each modified point, create a mask for points in its associated
+        support region indicating boundary points.
+        """
+        submasks = []
+        for func in self.group.funcs:
+            ndims = len(func.space_dimensions)
+
+            support_points = self.support.footprint_map[func]
+
+            boundary_msk = np.zeros((len(support_points[0]),
+                                     len(self.skin.points[0])), dtype=bool)
+            boundary_msk[self._oob] = False
+
+            in_bounds = np.logical_not(self._oob)
+            # Stencil points within bounds
+            pts_ib = tuple([self._stencil_points[dim][in_bounds]
+                            for dim in range(ndims)])
+            boundary_msk[in_bounds] = self.geometry.boundary_mask[pts_ib]
+
+            submasks.append(boundary_msk)
+        # (0 axis is support region points)
+        self._boundary_mask = np.concatenate(submasks)
 
     @property
     def support(self):
@@ -211,3 +251,8 @@ class Interpolant:
         matrix corresponds with a stencil point on the interior
         """
         return self._interior_mask
+
+    @property
+    def boundary_mask(self):
+        """Mask indicating boundary points"""
+        return self._boundary_mask
