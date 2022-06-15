@@ -3,6 +3,7 @@
 __all__ = ['BoundaryConditions']
 
 import devito as dv
+import sympy as sp
 import networkx as nx
 
 from devito.symbolics import retrieve_functions
@@ -36,6 +37,12 @@ class SingleCondition:
     coeff_map : dict
         Map between coeffcient placeholders and their expressions within the
         LHS expression
+
+    Methods
+    -------
+    sub_basis(basis_map)
+        Substitute instances of functions in the boundary conditions with their
+        respective basis functions.
     """
     def __init__(self, eq, funcs=None):
         self._eq = eq
@@ -110,6 +117,37 @@ class SingleCondition:
             self._dims = None
         else:  # Otherwise record the derivatives
             self._dims = tuple(dims)
+
+    def sub_basis(self, basis_map):
+        """
+        Substitute functions in the boundary condition for their respective
+        basis functions.
+        """
+        derivs = self.lhs.find(dv.Derivative)
+        funcs = self.lhs.find(dv.Function)
+        reps = {}
+        for func in funcs:
+            try:
+                basis = basis_map[func]
+            except KeyError:
+                # Should never end up here
+                raise ValueError("No basis generated for required function")
+            reps[func] = basis.expr
+        for deriv in derivs:
+            try:
+                basis = basis_map[deriv.expr]
+            except KeyError:
+                # Should never end up here
+                raise ValueError("No basis generated for required function")
+            if type(deriv.deriv_order) != tuple:
+                d_o = (deriv.deriv_order,)
+            else:
+                d_o = deriv.deriv_order
+            # Derivs to take of the basis
+            b_derivs = tuple([(deriv.dims[i], d_o[i])
+                              for i in range(len(deriv.dims))])
+            reps[deriv] = basis.deriv(*b_derivs)
+        return sp.simplify(self.lhs.subs(reps))
 
     @property
     def equation(self):

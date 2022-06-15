@@ -98,8 +98,8 @@ class Basis:
         Derivative terms in the expression
     n_terms : int
         The number of terms in the basis
-    d : IndexedBase
-        Placeholder symbol for grid spacing x derivatives
+    d : dict
+        Dictionary of placeholder symbols for grid spacing x derivatives
     expr : Mul
         The symbolic expression of the basis
 
@@ -130,7 +130,8 @@ class Basis:
                                                 repeat=self.ndims)
                        if sum(term) <= self.order]
 
-        self._d = sp.IndexedBase('d_'+self.name)  # Grid increment x derivative
+        self._d = {term: sp.Symbol('d_'+self.name+str(term))
+                   for term in self.terms}  # Grid increment x derivative
 
         expr_terms = []
         for term in self.terms:
