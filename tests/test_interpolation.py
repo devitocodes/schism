@@ -33,6 +33,39 @@ class DummySkin:
         self.points = kwargs.get('points', None)
 
 
+def setup_geom(setup, grid):
+    """Set up dummy geometry and skin objects"""
+    if setup == 0:  # Flat surface
+        skin_points = (np.array([0, 1, 2]), np.array([1, 1, 1]))
+        interior_mask = np.zeros(grid.shape, dtype=bool)
+        interior_mask[:, :2] = True
+
+    else:  # Tilted surface
+        skin_points = (np.array([0, 0, 1, 1, 2]),
+                       np.array([2, 1, 1, 0, 0]))
+        interior_mask = np.zeros(grid.shape, dtype=bool)
+        interior = (np.array([0, 0, 1, 0, 1, 2]),
+                    np.array([2, 1, 1, 0, 0, 0]))
+        interior_mask[interior] = True
+
+    geometry = DummyGeometry(grid=grid, interior_mask=interior_mask)
+    skin = DummySkin(geometry=geometry, points=skin_points)
+
+    return geometry, skin
+
+
+def setup_f(func_type, grid):
+    """Set up a function and a dummy group"""
+    if func_type == 'scalar':
+        f = dv.TimeFunction(name='f', grid=grid, space_order=2)
+        group = DummyGroup((f,))
+    else:
+        f = dv.VectorTimeFunction(name='f', grid=grid, space_order=2)
+        group = DummyGroup((f[0], f[1]))
+
+    return f, group
+
+
 class TestInterpolant:
     """Tests for the Interpolant object"""
 
@@ -165,12 +198,7 @@ class TestInterpolant:
     def test_interior_mask(self, setup, func_type):
         """Check that the interior mask is correctly generated"""
         grid = dv.Grid(shape=(3, 3), extent=(10., 10.))
-        if func_type == 'scalar':
-            f = dv.TimeFunction(name='f', grid=grid, space_order=2)
-            group = DummyGroup((f,))
-        else:
-            f = dv.VectorTimeFunction(name='f', grid=grid, space_order=2)
-            group = DummyGroup((f[0], f[1]))
+        f, group = setup_f(func_type, grid)
 
         basis_map = {func: Basis(func.name, grid.dimensions, 2)
                      for func in group.funcs}
@@ -180,24 +208,7 @@ class TestInterpolant:
         # Create a SupportRegion
         support = SupportRegion(basis_map, radius_map)
 
-        # Need to create a ModifiedSkin for the interpolant
-        # Note that dummy objects are used to simplify testing
-
-        if setup == 0:  # Flat surface
-            skin_points = (np.array([0, 1, 2]), np.array([1, 1, 1]))
-            interior_mask = np.zeros(grid.shape, dtype=bool)
-            interior_mask[:, :2] = True
-
-        else:  # Tilted surface
-            skin_points = (np.array([0, 0, 1, 1, 2]),
-                           np.array([2, 1, 1, 0, 0]))
-            interior_mask = np.zeros(grid.shape, dtype=bool)
-            interior = (np.array([0, 0, 1, 0, 1, 2]),
-                        np.array([2, 1, 1, 0, 0, 0]))
-            interior_mask[interior] = True
-
-        geometry = DummyGeometry(grid=grid, interior_mask=interior_mask)
-        skin = DummySkin(geometry=geometry, points=skin_points)
+        geometry, skin = setup_geom(setup, grid)
 
         # Create the Interpolant
         interpolant = Interpolant(support, group, basis_map, skin)
