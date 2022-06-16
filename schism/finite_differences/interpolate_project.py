@@ -100,6 +100,7 @@ class Interpolant:
         self._get_stencil_points()
         self._get_interior_mask()
         self._get_boundary_mask()
+        self._get_boundary_matrices()
 
     def _get_interior_vector(self):
         """
@@ -162,10 +163,8 @@ class Interpolant:
         for func in self.group.funcs:
             ndims = len(func.space_dimensions)
 
-            support_points = self.support.footprint_map[func]
-
-            interior_msk = np.zeros((len(support_points[0]),
-                                     len(self.skin.points[0])), dtype=bool)
+            interior_msk = np.zeros(self.support.npts_map[func],
+                                    self.skin.npts, dtype=bool)
             interior_msk[self._oob] = True
 
             in_bounds = np.logical_not(self._oob)
@@ -181,27 +180,60 @@ class Interpolant:
     def _get_boundary_mask(self):
         """
         For each modified point, create a mask for points in its associated
-        support region indicating boundary points.
+        support region of the function with the largest support region
+        indicating boundary points.
         """
-        submasks = []
-        for func in self.group.funcs:
-            ndims = len(func.space_dimensions)
+        # Get the function with the largest support region
+        func = self.support.max_span_func
 
-            support_points = self.support.footprint_map[func]
+        ndims = len(func.space_dimensions)
 
-            boundary_msk = np.zeros((len(support_points[0]),
-                                     len(self.skin.points[0])), dtype=bool)
-            boundary_msk[self._oob] = False
+        boundary_msk = np.zeros(self.support.npts_map[func],
+                                self.skin.npts, dtype=bool)
+        boundary_msk[self._oob[func]] = False
 
-            in_bounds = np.logical_not(self._oob)
-            # Stencil points within bounds
-            pts_ib = tuple([self._stencil_points[dim][in_bounds]
-                            for dim in range(ndims)])
-            boundary_msk[in_bounds] = self.geometry.boundary_mask[pts_ib]
+        in_bounds = np.logical_not(self._oob[func])
+        # Stencil points within bounds
+        pts_ib = tuple([self._stencil_points[func][dim][in_bounds]
+                        for dim in range(ndims)])
+        boundary_msk[in_bounds] = self.geometry.boundary_mask[pts_ib]
 
-            submasks.append(boundary_msk)
         # (0 axis is support region points)
-        self._boundary_mask = np.concatenate(submasks)
+        self._boundary_mask = boundary_msk
+
+    def _get_boundary_matrices(self):
+        """Get the submatrices for each boundary condition to be applied"""
+        # First need all the boundary points
+        # Get the function with the largest support region
+        func = self.support.max_span_func
+
+        # Number of points in the support region and number of modified points
+        nsten = self.support.npts_map[func]
+        nmod = self.skin.npts
+        ndims = len(func.space_dimensions)
+
+        # _stencil_points refers to absolute indices
+        bp = tuple([self._stencil_points[func][dim][self.boundary_mask]
+                    for dim in range(ndims)])
+        # Use these to access boundary offset from reference node
+        # FIXME: All of these are tuples of ndims x npts
+        pos = [self.geometry.dense_pos[dim][bp] for dim in range(ndims)]
+        footprint = self.support.footprint_map[func]
+        # Get the stencil footprint and cast it to the same size
+        for dim in range(ndims):
+            pos[dim] += np.broadcast_to(footprint[dim][:, np.newaxis],
+                                        (nsten, nmod))[self.boundary_mask]
+
+        pos = tuple(pos)
+
+        submats = []
+        for bc in self.group.conditions:
+            submat = np.zeros(nsten, nmod)
+            rowfunc = row_from_expr(bc, self.group.funcs, self.basis_map)
+            submat[self.boundary_mask] = rowfunc(*pos)
+            submats.append(submat)
+
+        self._boundary_matrices = tuple(submats)
 
     @property
     def support(self):

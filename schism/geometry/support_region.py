@@ -60,16 +60,23 @@ class SupportRegion:
     ----------
     footprint_map : dict
         Mapping between functions and the points within their support region
+    npts_map : dict
+        Mapping between functions and the number of points within their support
+        region.
+    max_span_func : Function
+        The function with the largest span
     """
     def __init__(self, basis_map, radius_map):
         self._basis_map = basis_map
         self._radius_map = radius_map
+        self._max_span_func = max(self.radius_map, key=self.radius_map.get)
 
         self._get_footprint()
 
     def _get_footprint(self):
         """Get the stencil footprint for each function"""
         footprints = {}
+        npts_map = {}
         if self.basis_map.keys() != self.radius_map.keys():
             # Should never end up here
             raise ValueError("Mismatch in functions supplied")
@@ -85,7 +92,9 @@ class SupportRegion:
                 # 1D basis
                 footprint = self._get_linear_support(func)
             footprints[func] = footprint
+            npts_map[func] = footprint[0].shape[0]
         self._footprint_map = frozendict(footprints)
+        self._npts_map = frozendict(npts_map)
 
     def _get_circle_support(self, func):
         """Get the footprint of a circular support region"""
@@ -129,8 +138,21 @@ class SupportRegion:
         return self._radius_map
 
     @property
+    def max_span_func(self):
+        """The function with the largest support region span"""
+        return self._max_span_func
+
+    @property
     def footprint_map(self):
         """
         Mapping between functions and the footprint of their support region.
         """
         return self._footprint_map
+
+    @property
+    def npts_map(self):
+        """
+        Mapping between functions and the number of points in their support
+        regions.
+        """
+        return self._npts_map

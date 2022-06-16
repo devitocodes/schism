@@ -37,6 +37,8 @@ class ModifiedSkin:
         The geometry of the boundary
     points : ndarray
         Points at which modified operators are required
+    npts : int
+        Number of points at which modified operators are required
     """
     def __init__(self, deriv, geometry):
         self._deriv = deriv
@@ -68,6 +70,7 @@ class ModifiedSkin:
         mp = mp[:, interior_mask]
 
         self._mod_points = tuple([mp[i] for i in range(mp.shape[0])])
+        self._npts = self.modified_points[0].shape[0]
 
     @property
     def deriv(self):
@@ -83,3 +86,8 @@ class ModifiedSkin:
     def modified_points(self):
         """Points where the derivative stencil will be modified"""
         return self._mod_points
+
+    @property
+    def npts(self):
+        """Number of points where the derivative stencil will be modified"""
+        return self._npts

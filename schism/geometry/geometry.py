@@ -131,6 +131,9 @@ class BoundaryGeometry:
         self._positions = tuple([positions[i][self.boundary_points]
                                  for i in range(len(spacing))])
 
+        self._dense_pos = np.zeros(self.grid.shape)
+        self._dense_pos[self.boundary_points] = self.positions
+
         self._n_boundary_points = self._boundary_points[0].shape[0]
 
     def _get_interior_mask(self):
@@ -168,6 +171,11 @@ class BoundaryGeometry:
     def positions(self):
         """Relative offsets corresponding with each boundary point"""
         return self._positions
+
+    @property
+    def dense_pos(self):
+        """Dense version of positions"""
+        return self._dense_pos
 
     @property
     def n_boundary_points(self):
