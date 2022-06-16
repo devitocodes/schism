@@ -8,6 +8,7 @@ import os
 import devito as dv
 import numpy as np
 
+from schism.conditions.boundary_conditions import SingleCondition
 from schism.basic.basis import Basis
 from schism.geometry.support_region import SupportRegion
 from schism.finite_differences.interpolate_project import Interpolant
@@ -15,8 +16,9 @@ from schism.finite_differences.interpolate_project import Interpolant
 
 class DummyGroup:
     """Dummy class as a placeholder for ConditionGroup"""
-    def __init__(self, funcs):
+    def __init__(self, funcs, conditions):
         self.funcs = funcs
+        self.conditions = conditions
 
 
 class DummyGeometry:
@@ -24,6 +26,8 @@ class DummyGeometry:
     def __init__(self, **kwargs):
         self.grid = kwargs.get('grid', None)
         self.interior_mask = kwargs.get('interior_mask', None)
+        self.boundary_mask = kwargs.get('boundary_mask', None)
+        self.dense_pos = kwargs.get('dense_pos', None)
 
 
 class DummySkin:
@@ -31,24 +35,34 @@ class DummySkin:
     def __init__(self, **kwargs):
         self.geometry = kwargs.get('geometry', None)
         self.points = kwargs.get('points', None)
+        self.npts = len(self.points[0])
 
 
 def setup_geom(setup, grid):
     """Set up dummy geometry and skin objects"""
+    assert len(grid.dimensions) == 2
+    interior_mask = np.zeros(grid.shape, dtype=bool)
+    boundary_mask = np.zeros(grid.shape, dtype=bool)
+    dense_pos = [np.zeros(grid.shape) for dim in grid.dimensions]
     if setup == 0:  # Flat surface
         skin_points = (np.array([0, 1, 2]), np.array([1, 1, 1]))
-        interior_mask = np.zeros(grid.shape, dtype=bool)
         interior_mask[:, :2] = True
+        boundary_mask[:, 2] = True
+        dense_pos[1][:, 2] = 0.4
 
     else:  # Tilted surface
         skin_points = (np.array([0, 0, 1, 1, 2]),
                        np.array([2, 1, 1, 0, 0]))
-        interior_mask = np.zeros(grid.shape, dtype=bool)
         interior = (np.array([0, 0, 1, 0, 1, 2]),
                     np.array([2, 1, 1, 0, 0, 0]))
         interior_mask[interior] = True
+        boundary = (np.array([1, 2, 2]), np.array([2, 2, 1]))
+        boundary_mask[boundary] = True
+        positions = np.array([np.sqrt(2), -np.sqrt(2), np.sqrt(2)])
+        dense_pos[0][boundary] = positions
 
-    geometry = DummyGeometry(grid=grid, interior_mask=interior_mask)
+    geometry = DummyGeometry(grid=grid, interior_mask=interior_mask,
+                             boundary_mask=boundary_mask, dense_pos=dense_pos)
     skin = DummySkin(geometry=geometry, points=skin_points)
 
     return geometry, skin
@@ -58,12 +72,36 @@ def setup_f(func_type, grid):
     """Set up a function and a dummy group"""
     if func_type == 'scalar':
         f = dv.TimeFunction(name='f', grid=grid, space_order=2)
-        group = DummyGroup((f,))
+        conditions = (SingleCondition(dv.Eq(f, 0)),
+                      SingleCondition(dv.Eq(f.laplace, 0)))
+        group = DummyGroup((f,), conditions)
     else:
         f = dv.VectorTimeFunction(name='f', grid=grid, space_order=2)
-        group = DummyGroup((f[0], f[1]))
+        conditions = (SingleCondition(dv.Eq(dv.div(f), 0)),)
+        group = DummyGroup((f[0], f[1]), conditions)
 
     return f, group
+
+
+def mask_test_setup(setup, func_type):
+    """Set up the interpolant for the boundary and interior mask tests"""
+    grid = dv.Grid(shape=(3, 3), extent=(10., 10.))
+    f, group = setup_f(func_type, grid)
+
+    basis_map = {func: Basis(func.name, grid.dimensions, 2)
+                 for func in group.funcs}
+
+    radius_map = {func: 1 for func in group.funcs}
+
+    # Create a SupportRegion
+    support = SupportRegion(basis_map, radius_map)
+
+    geometry, skin = setup_geom(setup, grid)
+
+    # Create the Interpolant
+    interpolant = Interpolant(support, group, basis_map, skin)
+
+    return interpolant
 
 
 class TestInterpolant:
@@ -197,21 +235,8 @@ class TestInterpolant:
     @pytest.mark.parametrize('func_type', ['scalar', 'vector'])
     def test_interior_mask(self, setup, func_type):
         """Check that the interior mask is correctly generated"""
-        grid = dv.Grid(shape=(3, 3), extent=(10., 10.))
-        f, group = setup_f(func_type, grid)
-
-        basis_map = {func: Basis(func.name, grid.dimensions, 2)
-                     for func in group.funcs}
-
-        radius_map = {func: 1 for func in group.funcs}
-
-        # Create a SupportRegion
-        support = SupportRegion(basis_map, radius_map)
-
-        geometry, skin = setup_geom(setup, grid)
-
         # Create the Interpolant
-        interpolant = Interpolant(support, group, basis_map, skin)
+        interpolant = mask_test_setup(setup, func_type)
 
         path = os.path.dirname(os.path.abspath(__file__))
         fname = path + '/results/interpolation_test_results/interior_mask/' \
@@ -220,3 +245,17 @@ class TestInterpolant:
         check = np.load(fname)
 
         assert np.all(interpolant.interior_mask == check)
+
+    @pytest.mark.parametrize('setup', [0, 1])
+    @pytest.mark.parametrize('func_type', ['scalar', 'vector'])
+    def test_boundary_mask(self, setup, func_type):
+        """Check that the boundary mask is correctly generated"""
+        interpolant = mask_test_setup(setup, func_type)
+
+        path = os.path.dirname(os.path.abspath(__file__))
+        fname = path + '/results/interpolation_test_results/boundary_mask/' \
+            + str(setup) + func_type + '.npy'
+
+        check = np.load(fname)
+
+        assert np.all(interpolant.boundary_mask == check)

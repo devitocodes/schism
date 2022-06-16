@@ -96,7 +96,7 @@ class Basis:
         Maximum order of the series
     terms : tuple
         Derivative terms in the expression
-    n_terms : int
+    nterms : int
         The number of terms in the basis
     d : dict
         Dictionary of placeholder symbols for grid spacing x derivatives
@@ -178,6 +178,11 @@ class Basis:
     def terms(self):
         """Derivative terms in the expression"""
         return self._terms
+
+    @property
+    def nterms(self):
+        """The number of terms in the expression"""
+        return len(self.terms)
 
     @property
     def d(self):

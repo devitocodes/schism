@@ -163,13 +163,13 @@ class Interpolant:
         for func in self.group.funcs:
             ndims = len(func.space_dimensions)
 
-            interior_msk = np.zeros(self.support.npts_map[func],
-                                    self.skin.npts, dtype=bool)
-            interior_msk[self._oob] = True
+            interior_msk = np.zeros((self.support.npts_map[func],
+                                     self.skin.npts), dtype=bool)
+            interior_msk[self._oob[func]] = True
 
-            in_bounds = np.logical_not(self._oob)
+            in_bounds = np.logical_not(self._oob[func])
             # Stencil points within bounds
-            pts_ib = tuple([self._stencil_points[dim][in_bounds]
+            pts_ib = tuple([self._stencil_points[func][dim][in_bounds]
                             for dim in range(ndims)])
             interior_msk[in_bounds] = self.geometry.interior_mask[pts_ib]
 
@@ -188,8 +188,8 @@ class Interpolant:
 
         ndims = len(func.space_dimensions)
 
-        boundary_msk = np.zeros(self.support.npts_map[func],
-                                self.skin.npts, dtype=bool)
+        boundary_msk = np.zeros((self.support.npts_map[func],
+                                 self.skin.npts), dtype=bool)
         boundary_msk[self._oob[func]] = False
 
         in_bounds = np.logical_not(self._oob[func])
@@ -199,6 +199,9 @@ class Interpolant:
         boundary_msk[in_bounds] = self.geometry.boundary_mask[pts_ib]
 
         # (0 axis is support region points)
+        print("Boundary Points")
+        print([self._stencil_points[func][dim][boundary_msk]
+               for dim in range(ndims)])
         self._boundary_mask = boundary_msk
 
     def _get_boundary_matrices(self):
@@ -210,6 +213,7 @@ class Interpolant:
         # Number of points in the support region and number of modified points
         nsten = self.support.npts_map[func]
         nmod = self.skin.npts
+        nterms = sum([self.basis_map[f].nterms for f in self.group.funcs])
         ndims = len(func.space_dimensions)
 
         # _stencil_points refers to absolute indices
@@ -228,9 +232,12 @@ class Interpolant:
 
         submats = []
         for bc in self.group.conditions:
-            submat = np.zeros(nsten, nmod)
-            rowfunc = row_from_expr(bc, self.group.funcs, self.basis_map)
-            submat[self.boundary_mask] = rowfunc(*pos)
+            # Note, the first two axes will need swapping in due course
+            submat = np.zeros((nterms, nsten, nmod))
+            # Substitute the basis funcs into the boundary condition
+            expr = bc.sub_basis(self.basis_map)
+            rowfunc = row_from_expr(expr, self.group.funcs, self.basis_map)
+            submat[:, self.boundary_mask] = rowfunc(*pos)
             submats.append(submat)
 
         self._boundary_matrices = tuple(submats)

@@ -110,6 +110,7 @@ class BoundaryGeometry:
         Get indices of boundary points and their distances to the boundary.
         """
         spacing = self.grid.spacing
+        dims = self.grid.dimensions
         max_dist = np.sqrt(sum([(inc/2)**2 for inc in spacing]))
 
         # Normalise positions by grid increment
@@ -129,10 +130,13 @@ class BoundaryGeometry:
 
         # May want to be an array rather than a tuple of arrays in future
         self._positions = tuple([positions[i][self.boundary_points]
-                                 for i in range(len(spacing))])
+                                 for i in range(len(dims))])
 
-        self._dense_pos = np.zeros(self.grid.shape)
-        self._dense_pos[self.boundary_points] = self.positions
+        dense_pos = [np.zeros(self.grid.shape) for dim in dims]
+        for dim in range(len(dims)):
+            dense_pos[dim][self.boundary_points] = self.positions[dim]
+
+        self._dense_pos = tuple(dense_pos)
 
         self._n_boundary_points = self._boundary_points[0].shape[0]
 
