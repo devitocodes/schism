@@ -133,10 +133,15 @@ class Interpolant:
         """
         submats = []  # Submatrices to be concatenated
         for func in self.group.funcs:
+            stagger = tuple([0.5 if dim in func.staggered else 0.
+                             for dim in func.space_dimensions])
             basis = self.basis_map[func]
             row_func = row_from_expr(basis.expr, self.group.funcs,
                                      self.basis_map)
-            submats.append(row_func(*self.support.footprint_map[func]))
+            # Support points with stagger
+            s_p = tuple([self.support.footprint_map[func][dim] + stagger[dim]
+                         for dim in range(len(func.space_dimensions))])
+            submats.append(row_func(*s_p))
         # Will need to do an axis swap in due course
         self._interior_matrix = np.concatenate(submats, axis=1)
 
