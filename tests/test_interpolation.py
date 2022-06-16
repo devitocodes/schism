@@ -58,8 +58,9 @@ def setup_geom(setup, grid):
         interior_mask[interior] = True
         boundary = (np.array([1, 2, 2]), np.array([2, 2, 1]))
         boundary_mask[boundary] = True
-        positions = np.array([np.sqrt(2), -np.sqrt(2), np.sqrt(2)])
+        positions = np.array([np.sqrt(2)/2, -np.sqrt(2)/2, np.sqrt(2)/2])
         dense_pos[0][boundary] = positions
+        dense_pos[1][boundary] = positions
 
     geometry = DummyGeometry(grid=grid, interior_mask=interior_mask,
                              boundary_mask=boundary_mask, dense_pos=dense_pos)
@@ -259,3 +260,17 @@ class TestInterpolant:
         check = np.load(fname)
 
         assert np.all(interpolant.boundary_mask == check)
+
+    @pytest.mark.parametrize('setup', [0, 1])
+    @pytest.mark.parametrize('func_type', ['scalar', 'vector'])
+    def test_boundary_matrices(self, setup, func_type):
+        """Check that the boundary matrices are correctly generated"""
+        interpolant = mask_test_setup(setup, func_type)
+
+        path = os.path.dirname(os.path.abspath(__file__))
+        fname = path + '/results/interpolation_test_results/boundary_mats/' \
+            + str(setup) + func_type + '.npy'
+
+        check = np.load(fname)
+        assert np.all(np.isclose(np.array(interpolant.boundary_matrices),
+                                 check))

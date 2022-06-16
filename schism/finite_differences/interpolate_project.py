@@ -199,9 +199,6 @@ class Interpolant:
         boundary_msk[in_bounds] = self.geometry.boundary_mask[pts_ib]
 
         # (0 axis is support region points)
-        print("Boundary Points")
-        print([self._stencil_points[func][dim][boundary_msk]
-               for dim in range(ndims)])
         self._boundary_mask = boundary_msk
 
     def _get_boundary_matrices(self):
@@ -295,3 +292,8 @@ class Interpolant:
     def boundary_mask(self):
         """Mask indicating boundary points"""
         return self._boundary_mask
+
+    @property
+    def boundary_matrices(self):
+        """Boundary matrices"""
+        return self._boundary_matrices
