@@ -102,6 +102,8 @@ class Interpolant:
         self._get_boundary_mask()
         self._get_boundary_matrices()
         self._assemble_matrix()
+        self._check_rank()
+        self._purge_low_rank()
 
     def _get_interior_vector(self):
         """
@@ -260,6 +262,18 @@ class Interpolant:
         self._matrix = np.concatenate((interior,)+self.boundary_matrices,
                                       axis=1)
 
+    def _check_rank(self):
+        """
+        Check the ranks of the matrices in the stack and assemble a mask for
+        where it is not equal to the number of terms to solve for.
+        """
+        self._rank = np.linalg.matrix_rank(self.matrix)
+        self._rank_mask = self._rank == self.matrix.shape[0]
+        if np.all(self._rank_mask):
+            self._is_sufficient_rank = True
+        else:
+            self._is_sufficient_rank = False
+
     @property
     def support(self):
         """The support region used to fit the basis"""
@@ -323,3 +337,13 @@ class Interpolant:
     def matrix(self):
         """The full matrix stack"""
         return self._matrix
+
+    @property
+    def rank(self):
+        """The rank of each matrix in the stack"""
+        return self._rank
+
+    @property
+    def rank_mask(self):
+        """Mask for points where the matrix inverse is unique"""
+        return self._rank_mask
