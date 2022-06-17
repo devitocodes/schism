@@ -184,13 +184,40 @@ class TestBoundaryGeometry:
             below = np.logical_and(np.isclose(bg.positions[0], -0.5),
                                    np.isclose(bg.positions[1], 0.5))
 
-            assert np.all(np.logical_or.reduce((on, above, below)))
         # For horizontal, they're going to be (0, 0.5), (0.5, 0)
         elif surface == 'horizontal':
             above = np.logical_and(np.isclose(bg.positions[0], 0),
                                    np.isclose(bg.positions[1], -0.5))
             below = np.logical_and(np.isclose(bg.positions[0], 0),
                                    np.isclose(bg.positions[1], 0.5))
+
+        assert np.all(np.logical_or.reduce((on, above, below)))
+
+    @pytest.mark.parametrize('surface', ['45', 'horizontal'])
+    def test_dense_pos(self, surface):
+        """
+        Check that the dense version of the point positions is correctly
+        constructed.
+        """
+        sdf = read_sdf(surface, 2)
+        bg = BoundaryGeometry(sdf)
+        # Trim edges off data, as normal calculation in corners is imperfect
+        slices = tuple([slice(2, -2) for dim in sdf.grid.dimensions])
+        data = tuple([bg.dense_pos[dim][slices] for dim in range(2)])
+
+        if surface == '45':
+            assert np.all(np.isclose(np.diagonal(data[0], offset=1), 0.5))
+            assert np.all(np.isclose(np.diagonal(data[0], offset=0), 0))
+            assert np.all(np.isclose(np.diagonal(data[0], offset=-1), -0.5))
+            assert np.all(np.isclose(np.diagonal(data[1], offset=1), -0.5))
+            assert np.all(np.isclose(np.diagonal(data[1], offset=0), 0))
+            assert np.all(np.isclose(np.diagonal(data[1], offset=-1), 0.5))
+
+        elif surface == 'horizontal':
+            assert np.all(np.isclose(data[0][:, 48], 0))
+            assert np.all(np.isclose(data[0][:, 49], 0))
+            assert np.all(np.isclose(data[1][:, 48], 0.5))
+            assert np.all(np.isclose(data[1][:, 49], -0.5))
 
     @pytest.mark.parametrize('surface, dims', [('45_mirror', 2),
                                                ('horizontal', 2),
