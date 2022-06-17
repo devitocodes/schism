@@ -101,6 +101,7 @@ class Interpolant:
         self._get_interior_mask()
         self._get_boundary_mask()
         self._get_boundary_matrices()
+        self._assemble_matrix()
 
     def _get_interior_vector(self):
         """
@@ -244,6 +245,21 @@ class Interpolant:
 
         self._boundary_matrices = tuple(submats)
 
+    def _assemble_matrix(self):
+        """
+        Assemble the matrix from the masked interior matrix and the boundary
+        matrices.
+        """
+        nmod = self.skin.npts
+        # Initialise empty interior matrix
+        interior = np.zeros(self.interior.shape+(nmod,))
+        interior_bcst = np.broadcast_to(self.interior_matrix,
+                                        self.interior.shape+(nmod,))
+        interior[:, self.interior_mask] = interior_bcst[:, self.interior_mask]
+
+        self._matrix = np.concatenate((interior,)+self.boundary_matrices,
+                                      axis=1)
+
     @property
     def support(self):
         """The support region used to fit the basis"""
@@ -302,3 +318,8 @@ class Interpolant:
     def boundary_matrices(self):
         """Boundary matrices"""
         return self._boundary_matrices
+
+    @property
+    def matrix(self):
+        """The full matrix stack"""
+        return self._matrix
