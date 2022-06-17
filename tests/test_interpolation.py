@@ -40,7 +40,7 @@ class DummySkin:
 
 def setup_geom(setup, grid):
     """Set up dummy geometry and skin objects"""
-    assert len(grid.dimensions) == 2
+    assert grid.shape == (3, 3)
     interior_mask = np.zeros(grid.shape, dtype=bool)
     boundary_mask = np.zeros(grid.shape, dtype=bool)
     dense_pos = [np.zeros(grid.shape) for dim in grid.dimensions]
@@ -121,13 +121,14 @@ class TestInterpolant:
         more general).
         """
         # Need to create a grid with some dimensionality
-        shape = tuple([11 for dim in range(ndims)])
+        shape = tuple([3 for dim in range(ndims)])
         extent = tuple([10. for dim in range(ndims)])
         grid = dv.Grid(shape=shape, extent=extent)
         # Need to create one or two functions
         funcs = [dv.TimeFunction(name='f'+str(i), grid=grid, space_order=s_o)
                  for i in range(nfuncs)]
-        group = DummyGroup(tuple(funcs))
+        conditions = tuple([SingleCondition(dv.Eq(func, 0)) for func in funcs])
+        group = DummyGroup(tuple(funcs), conditions)
         if basis_dim is None:
             basis_map = {func: Basis(func.name, grid.dimensions, s_o)
                          for func in funcs}
@@ -139,8 +140,20 @@ class TestInterpolant:
         radius_map = {func: int(s_o//2) for func in funcs}
         # Create a SupportRegion
         support = SupportRegion(basis_map, radius_map)
+
+        geometry = DummyGeometry(grid=grid,
+                                 interior_mask=np.full(grid.shape, True,
+                                                       dtype=bool),
+                                 boundary_mask=np.full(grid.shape, False,
+                                                       dtype=bool),
+                                 dense_pos=tuple([np.full(grid.shape, 0)
+                                                  for dim in range(ndims)]))
+        skin = DummySkin(geometry=geometry,
+                         points=tuple([np.array([], dtype=int)
+                                       for dim in range(ndims)]))
+
         # Create the Interpolant
-        interpolant = Interpolant(support, group)
+        interpolant = Interpolant(support, group, basis_map, skin)
         # Check the interior vector has the correct length
         if basis_dim is None:
             check_len = sum([len(support.footprint_map[func][0])
@@ -176,7 +189,8 @@ class TestInterpolant:
         grid = dv.Grid(shape=shape, extent=extent)
         funcs = [dv.TimeFunction(name='f'+str(i), grid=grid, space_order=2)
                  for i in range(nfuncs)]
-        group = DummyGroup(tuple(funcs))
+        conditions = tuple([SingleCondition(dv.Eq(func, 0)) for func in funcs])
+        group = DummyGroup(tuple(funcs), conditions)
         if basis_dim is None:
             basis_map = {func: Basis(func.name, grid.dimensions, 2)
                          for func in group.funcs}
@@ -188,8 +202,18 @@ class TestInterpolant:
         radius_map = {func: 1 for func in group.funcs}
         # Create a SupportRegion
         support = SupportRegion(basis_map, radius_map)
+        geometry = DummyGeometry(grid=grid,
+                                 interior_mask=np.full(grid.shape, True,
+                                                       dtype=bool),
+                                 boundary_mask=np.full(grid.shape, False,
+                                                       dtype=bool),
+                                 dense_pos=tuple([np.full(grid.shape, 0)
+                                                  for dim in range(ndims)]))
+        skin = DummySkin(geometry=geometry,
+                         points=tuple([np.array([], dtype=int)
+                                       for dim in range(ndims)]))
         # Create the Interpolant
-        interpolant = Interpolant(support, group)
+        interpolant = Interpolant(support, group, basis_map, skin)
         # Check the interior vector matches the answer
         assert str(interpolant.interior_vector) == ans
 
@@ -203,10 +227,13 @@ class TestInterpolant:
         grid = dv.Grid(shape=(11, 11), extent=(10., 10.))
         if func_type == 'scalar':
             f = dv.TimeFunction(name='f', grid=grid, space_order=s_o)
-            group = DummyGroup((f,))
+            conditions = (SingleCondition(dv.Eq(f, 0)),)
+            group = DummyGroup((f,), conditions)
         else:
             f = dv.VectorTimeFunction(name='f', grid=grid, space_order=s_o)
-            group = DummyGroup((f[0], f[1]))
+            conditions = (SingleCondition(dv.Eq(f[0], 0)),
+                          SingleCondition(dv.Eq(f[1], 0)))
+            group = DummyGroup((f[0], f[1]), conditions)
 
         if basis_dim is None:
             basis_map = {func: Basis(func.name, grid.dimensions, s_o)
@@ -221,8 +248,19 @@ class TestInterpolant:
 
         # Create a SupportRegion
         support = SupportRegion(basis_map, radius_map)
+
+        geometry = DummyGeometry(grid=grid,
+                                 interior_mask=np.full(grid.shape, True,
+                                                       dtype=bool),
+                                 boundary_mask=np.full(grid.shape, False,
+                                                       dtype=bool),
+                                 dense_pos=tuple([np.full(grid.shape, 0)
+                                                  for dim in range(2)]))
+        skin = DummySkin(geometry=geometry,
+                         points=tuple([np.array([], dtype=int)
+                                       for dim in range(2)]))
         # Create the Interpolant
-        interpolant = Interpolant(support, group, basis_map)
+        interpolant = Interpolant(support, group, basis_map, skin)
 
         path = os.path.dirname(os.path.abspath(__file__))
         fname = path + '/results/interpolation_test_results/interior_matrix/' \

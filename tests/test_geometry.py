@@ -183,6 +183,7 @@ class TestBoundaryGeometry:
                                    np.isclose(bg.positions[1], -0.5))
             below = np.logical_and(np.isclose(bg.positions[0], -0.5),
                                    np.isclose(bg.positions[1], 0.5))
+            assert np.all(np.logical_or.reduce((on, above, below)))
 
         # For horizontal, they're going to be (0, 0.5), (0.5, 0)
         elif surface == 'horizontal':
@@ -190,8 +191,7 @@ class TestBoundaryGeometry:
                                    np.isclose(bg.positions[1], -0.5))
             below = np.logical_and(np.isclose(bg.positions[0], 0),
                                    np.isclose(bg.positions[1], 0.5))
-
-        assert np.all(np.logical_or.reduce((on, above, below)))
+            assert np.all(np.logical_or(above, below))
 
     @pytest.mark.parametrize('surface', ['45', 'horizontal'])
     def test_dense_pos(self, surface):

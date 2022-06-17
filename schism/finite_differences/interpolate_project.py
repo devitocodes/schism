@@ -5,6 +5,7 @@ interior stencil.
 
 import sympy as sp
 import numpy as np
+import devito as dv
 
 from devito.tools.data_structures import frozendict
 from schism.basic import row_from_expr
@@ -103,7 +104,7 @@ class Interpolant:
         self._get_boundary_matrices()
         self._assemble_matrix()
         self._check_rank()
-        self._purge_low_rank()
+        self._get_pinv()
 
     def _get_interior_vector(self):
         """
@@ -136,8 +137,14 @@ class Interpolant:
         """
         submats = []  # Submatrices to be concatenated
         for func in self.group.funcs:
-            stagger = tuple([0.5 if dim in func.staggered else 0.
-                             for dim in func.space_dimensions])
+            if func.staggered is None:  # No stagger
+                stagger = tuple([0 for dim in func.space_dimensions])
+            elif type(func.staggered) == dv.SpaceDimension:
+                stagger = tuple([0.5 if dim == func.staggered else 0.
+                                 for dim in func.space_dimensions])
+            else:  # Staggering in multiple directions
+                stagger = tuple([0.5 if dim in func.staggered else 0.
+                                 for dim in func.space_dimensions])
             basis = self.basis_map[func]
             row_func = row_from_expr(basis.expr, self.group.funcs,
                                      self.basis_map)
@@ -179,6 +186,7 @@ class Interpolant:
             # Stencil points within bounds
             pts_ib = tuple([self._stencil_points[func][dim][in_bounds]
                             for dim in range(ndims)])
+
             interior_msk[in_bounds] = self.geometry.interior_mask[pts_ib]
 
             submasks.append(interior_msk)
@@ -225,7 +233,6 @@ class Interpolant:
         bp = tuple([self._stencil_points[func][dim][self.boundary_mask]
                     for dim in range(ndims)])
         # Use these to access boundary offset from reference node
-        # FIXME: All of these are tuples of ndims x npts
         pos = [self.geometry.dense_pos[dim][bp] for dim in range(ndims)]
         footprint = self.support.footprint_map[func]
         # Get the stencil footprint and cast it to the same size
@@ -254,13 +261,17 @@ class Interpolant:
         """
         nmod = self.skin.npts
         # Initialise empty interior matrix
-        interior = np.zeros(self.interior.shape+(nmod,))
-        interior_bcst = np.broadcast_to(self.interior_matrix,
-                                        self.interior.shape+(nmod,))
+        interior = np.zeros(self.interior_matrix.shape+(nmod,))
+        interior_bcst = np.broadcast_to(self.interior_matrix[..., np.newaxis],
+                                        self.interior_matrix.shape+(nmod,))
         interior[:, self.interior_mask] = interior_bcst[:, self.interior_mask]
 
-        self._matrix = np.concatenate((interior,)+self.boundary_matrices,
-                                      axis=1)
+        matrix = np.concatenate((interior,)+self.boundary_matrices,
+                                axis=1)
+        # Need to reverse the order of axes at this point
+        # Linalg exprects the stacking to be on the first axis
+        # But we have it on the last
+        self._matrix = np.moveaxis(matrix, (0, 1, 2), (2, 1, 0))
 
     def _check_rank(self):
         """
@@ -273,6 +284,14 @@ class Interpolant:
             self._is_sufficient_rank = True
         else:
             self._is_sufficient_rank = False
+
+    def _get_pinv(self):
+        """
+        Get the Moore-Penrose pseudoinverse of the matrices in the stack which
+        have rank sufficient to yield a unique pseudoinverse.
+        """
+        of_rank = self._matrix[self._rank_mask]
+        self._pinv = np.linalg.pinv(of_rank)
 
     @property
     def support(self):
@@ -347,3 +366,11 @@ class Interpolant:
     def rank_mask(self):
         """Mask for points where the matrix inverse is unique"""
         return self._rank_mask
+
+    @property
+    def pinv(self):
+        """
+        The Moore-Penrose pseudoinverse of matrices in the stack for matrices
+        which have sufficient rank for this pseudoinverse to be unique.
+        """
+        return self._pinv

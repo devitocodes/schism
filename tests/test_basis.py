@@ -68,8 +68,9 @@ class TestBasis:
         basis = Basis('f', dims, order)
         check = Basis('f', dims, order-reduce)
         reduced = basis.reduce_order(reduce)
-        print(reduced.expr - check.expr.subs(check.d, reduced.d))
-        assert reduced.expr == check.expr.subs(check.d, reduced.d)
+        substitution = [(check.d[term], reduced.d[term])
+                        for term in check.terms]
+        assert reduced.expr == check.expr.subs(substitution)
 
 
 class TestRowFromExpression:
@@ -120,7 +121,7 @@ class TestRowFromExpression:
         rows = rowfunc(*points)
 
         path = os.path.dirname(os.path.abspath(__file__))
-        fname = path + '/results/basis_test_results/row_from_expr' \
+        fname = path + '/results/basis_test_results/row_from_expr/' \
             + str(ndims) + str(basis_dim) + str(func_pos) + str(s_o) + '.npy'
 
         answer = np.load(fname)  # Load the answer
