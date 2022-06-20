@@ -447,3 +447,11 @@ class Projection:
     def footprint(self):
         """The footprint of the interior stencil"""
         return self._footprint
+
+    @property
+    def project_matrix(self):
+        """
+        The matrix used to project the polynomial onto the interior stencil
+        footprint.
+        """
+        return self._project_matrix
