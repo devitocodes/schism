@@ -10,6 +10,7 @@ import devito as dv
 from devito.tools.data_structures import frozendict
 from schism.basic import row_from_expr
 from schism.geometry.support_region import get_points_and_oob
+from schism.geometry.skin import stencil_footprint
 
 
 class MultiInterpolant:
@@ -379,3 +380,70 @@ class Interpolant:
     def all_full_rank(self):
         """If True, then all the fitted interpolants are fully constrained"""
         return self._all_full_rank
+
+
+class Projection:
+    """
+    Captures the projection of an interpolating polynomial onto the interior
+    discretization.
+
+    Parameters
+    ----------
+    deriv : Derivative
+        The derivative onto whose stencil the interpolating polynomial should
+        be projected
+    group : ConditionGroup
+        The group of boundary conditions applied
+    basis_map : dict
+        Mapping between functions and their approximating basis functions
+    """
+    def __init__(self, deriv, group, basis_map):
+        self._deriv = deriv
+        self._group = group
+        self._basis_map = basis_map
+        self._get_stencil_footprint()
+        self._get_projection_matrix()
+
+    def _get_stencil_footprint(self):
+        """Get the footprint of the specified stencil"""
+        footprint = stencil_footprint(self.deriv)
+        # Want this as a tuple for next steps
+        ndims = len(self.deriv.expr.space_dimensions)
+        self._footprint = tuple([footprint[dim]
+                                 for dim in range(ndims)])
+
+    def _get_projection_matrix(self):
+        """
+        Get the matrix used to project the interpolant onto the interior
+        stencil.
+        """
+        basis = self.basis_map[self.deriv.expr]
+        rowfunc = row_from_expr(basis.expr, self.group.funcs, self.basis_map)
+
+        # Matrix before axis flipping
+        matrix = rowfunc(*self.footprint)
+        # Flip the axis order, as the broadcasting produces swapped axes
+        self._project_matrix = np.moveaxis(matrix, (0, 1), (1, 0))
+
+    @property
+    def deriv(self):
+        """
+        The derivative onto whose stencil the interpolating polynomial should
+        be projected.
+        """
+        return self._deriv
+
+    @property
+    def group(self):
+        """The group of boundary conditions applied"""
+        return self._group
+
+    @property
+    def basis_map(self):
+        """Mapping between functions and their approximating basis functions"""
+        return self._basis_map
+
+    @property
+    def footprint(self):
+        """The footprint of the interior stencil"""
+        return self._footprint
