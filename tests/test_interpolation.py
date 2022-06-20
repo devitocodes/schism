@@ -338,3 +338,14 @@ class TestInterpolant:
             assert interpolant.all_full_rank is False
         else:
             assert interpolant.all_full_rank is True
+
+    @pytest.mark.parametrize('setup', [0, 1])
+    @pytest.mark.parametrize('func_type', ['scalar', 'vector'])
+    def test_pinv(self, setup, func_type):
+        """Check that the pseudoinverse is correctly calculated"""
+        interpolant = mask_test_setup(setup, func_type)
+
+        id = np.matmul(interpolant.pinv,
+                       interpolant.matrix[interpolant.rank_mask])
+
+        assert np.all(np.isclose(id, np.eye(interpolant.matrix.shape[-1])))
