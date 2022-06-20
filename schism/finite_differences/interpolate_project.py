@@ -279,11 +279,11 @@ class Interpolant:
         where it is not equal to the number of terms to solve for.
         """
         self._rank = np.linalg.matrix_rank(self.matrix)
-        self._rank_mask = self._rank == self.matrix.shape[0]
+        self._rank_mask = self._rank == self.matrix.shape[-1]
         if np.all(self._rank_mask):
-            self._is_sufficient_rank = True
+            self._all_full_rank = True
         else:
-            self._is_sufficient_rank = False
+            self._all_full_rank = False
 
     def _get_pinv(self):
         """
@@ -374,3 +374,8 @@ class Interpolant:
         which have sufficient rank for this pseudoinverse to be unique.
         """
         return self._pinv
+
+    @property
+    def all_full_rank(self):
+        """If True, then all the fitted interpolants are fully constrained"""
+        return self._all_full_rank

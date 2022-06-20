@@ -312,3 +312,29 @@ class TestInterpolant:
         check = np.load(fname)
         assert np.all(np.isclose(np.array(interpolant.boundary_matrices),
                                  check))
+
+    @pytest.mark.parametrize('setup', [0, 1])
+    @pytest.mark.parametrize('func_type', ['scalar', 'vector'])
+    def test_rank_check(self, setup, func_type):
+        """Check that the rank of each matrix is correctly calculated"""
+        interpolant = mask_test_setup(setup, func_type)
+
+        path = os.path.dirname(os.path.abspath(__file__))
+        # Filename for the ranks
+        fnamer = path + '/results/interpolation_test_results/ranks/' \
+            + str(setup) + func_type + '.npy'
+
+        # Filename for the rank mask
+        fnamem = path + '/results/interpolation_test_results/rank_mask/' \
+            + str(setup) + func_type + '.npy'
+
+        checkr = np.load(fnamer)
+        checkm = np.load(fnamem)
+
+        assert np.all(checkr == interpolant.rank)
+        assert np.all(checkm == interpolant.rank_mask)
+
+        if setup == 0 and func_type == 'vector':
+            assert interpolant.all_full_rank is False
+        else:
+            assert interpolant.all_full_rank is True
