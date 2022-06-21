@@ -28,7 +28,8 @@ def get_sten_vector(deriv, points):
         except KeyError:
             order = 0
         try:
-            x0 = deriv.x0[dim]
+            # Get the relative offset (set dim to zero and spacing to 1)
+            x0 = float(deriv.x0[dim].subs([(dim, 0), (dim.spacing, 1)]))
         except KeyError:
             x0 = 0
         dim_coeffs.append(np.array(sp.finite_diff_weights(order,

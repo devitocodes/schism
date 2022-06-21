@@ -353,7 +353,7 @@ class TestInterpolant:
 
     @pytest.mark.parametrize('setup', [0, 1])
     @pytest.mark.parametrize('func_type', ['scalar', 'vector'])
-    @pytest.mark.parametrize('deriv_type', ['dx', 'dy2'])
+    @pytest.mark.parametrize('deriv_type', ['dx', 'dy2', 'dxf'])
     def test_projection(self, setup, func_type, deriv_type):
         """
         Check that the interpolant is correctly projected onto the interior
@@ -363,14 +363,22 @@ class TestInterpolant:
         group = interpolant.group
         basis_map = interpolant.basis_map
 
+        x, y = group.funcs[0].space_dimensions
+
         if deriv_type == 'dx':
             deriv = group.funcs[0].dx
         elif deriv_type == 'dy2':
             deriv = group.funcs[0].dy2
+        elif deriv_type == 'dxf':
+            deriv = group.funcs[0].dx(x0=x+x.spacing/2)
 
         projection = Projection(deriv, group, basis_map)
 
         stencil = interpolant.project(projection)
-        print(stencil)
 
-        assert False
+        path = os.path.dirname(os.path.abspath(__file__))
+        fname = path + '/results/interpolation_test_results/projection/' \
+            + str(setup) + func_type + deriv_type + '.npy'
+
+        check = np.load(fname)
+        assert np.all(np.isclose(stencil, check))
