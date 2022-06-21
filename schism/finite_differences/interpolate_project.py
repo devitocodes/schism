@@ -34,16 +34,28 @@ class MultiInterpolant:
     """
     def __init__(self):
         self._interpolants = []
+        self._largest_span = 0
 
     def add(self, interpolant):
         """Add an Interpolant"""
-        # FIXME: Will need to do a bunch of other stuff in due course
         self._interpolants.append(interpolant)
+        # May just want unified radius in due course
+        max_radius = max(interpolant.support.radius_map.values())
+        if max_radius > self.largest_span:
+            self._largest_span = max_radius
 
     @property
     def interpolants(self):
         """Interpolant objects attached to the MultiInterpolant"""
         return tuple(self._interpolants)
+
+    @property
+    def largest_span(self):
+        """
+        The largest span of a support region of an Interpolant attached to the
+        MultiInterpolant.
+        """
+        return self._largest_span
 
 
 class MultiProjection:
@@ -66,7 +78,6 @@ class MultiProjection:
 
     def add(self, projection):
         """Add a Projection"""
-        # FIXME: will need to do a bunch of other stuff in due course
         self._projections.append(projection)
 
     @property
