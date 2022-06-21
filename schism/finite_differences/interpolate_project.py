@@ -3,14 +3,15 @@ Objects for fitting of polynomial basis funtions and projection onto the
 interior stencil.
 """
 
-import sympy as sp
 import numpy as np
+import sympy as sp
 import devito as dv
 
 from devito.tools.data_structures import frozendict
 from schism.basic import row_from_expr
 from schism.geometry.support_region import get_points_and_oob
 from schism.geometry.skin import stencil_footprint
+from schism.finite_differences.tools import get_sten_vector
 
 
 class MultiInterpolant:
@@ -128,8 +129,7 @@ class Interpolant:
                 ind = (t,) + tuple(space_ind)
                 vec.append(func[ind])
 
-        # Make this a sympy Matrix
-        self._interior_vector = sp.Matrix(vec)
+        self._interior_vector = np.array(vec)
 
     def _get_interior_matrix(self):
         """
@@ -244,6 +244,7 @@ class Interpolant:
         pos = tuple(pos)
 
         submats = []
+        vecs = []  # RHS vectors (zero for now)
         for bc in self.group.conditions:
             # Note, the first two axes will need swapping in due course
             submat = np.zeros((nterms, nsten, nmod))
@@ -253,7 +254,11 @@ class Interpolant:
             submat[:, self.boundary_mask] = rowfunc(*pos)
             submats.append(submat)
 
+            # Filling the RHS with zeros for now
+            vecs.append(np.full(nsten, sp.Float(0)))
+
         self._boundary_matrices = tuple(submats)
+        self._boundary_vectors = tuple(vecs)
 
     def _assemble_matrix(self):
         """
@@ -273,6 +278,8 @@ class Interpolant:
         # Linalg exprects the stacking to be on the first axis
         # But we have it on the last
         self._matrix = np.moveaxis(matrix, (0, 1, 2), (2, 1, 0))
+        self._vector = np.concatenate((self.interior_vector,)
+                                      + self.boundary_vectors)
 
     def _check_rank(self):
         """
@@ -293,6 +300,40 @@ class Interpolant:
         """
         of_rank = self._matrix[self._rank_mask]
         self._pinv = np.linalg.pinv(of_rank)
+
+    def project(self, projection):
+        """
+        Project the interpolant onto the the interior stencil using the
+        Projection object supplied.
+        """
+        # Multiply the pinv by the projection matrix
+        projected = np.matmul(projection.project_matrix, self.pinv)
+
+        # Get the interior mask at points where a pinv was calculated
+        interior_mask = self.interior_mask[..., self.rank_mask]
+        # Get the bits of the mask corresponding to points in our interior
+        # stencil
+        stencil_mask = np.isin(self.interior_vector, projection.vector)
+
+        # Rows modified
+        row_mask = np.swapaxes(interior_mask[stencil_mask], 0, 1)
+
+        # Using duck typing on the mask here
+        fill_vals = self.vector[np.newaxis, :] \
+            == projection.vector[:, np.newaxis]
+
+        # Modified matrix with direct mapping for points lying on interior
+        # Not 100% sure of the efficiency of np.where, but works here
+        modified = np.where(row_mask[..., np.newaxis],
+                            fill_vals[np.newaxis], projected)
+
+        # Multiply this matrix by the transpose of the stencil coefficient
+        # vector
+        interior_stencil = get_sten_vector(projection.deriv,
+                                           projection.footprint)
+
+        stencil = np.matmul(interior_stencil, modified)
+        return stencil
 
     @property
     def support(self):
@@ -354,9 +395,19 @@ class Interpolant:
         return self._boundary_matrices
 
     @property
+    def boundary_vectors(self):
+        """Boundary RHS vectors"""
+        return self._boundary_vectors
+
+    @property
     def matrix(self):
         """The full matrix stack"""
         return self._matrix
+
+    @property
+    def vector(self):
+        """The full RHS vector"""
+        return self._vector
 
     @property
     def rank(self):
@@ -411,6 +462,14 @@ class Projection:
         ndims = len(self.deriv.expr.space_dimensions)
         self._footprint = tuple([footprint[dim]
                                  for dim in range(ndims)])
+        npts = self.footprint[0].shape[0]
+        func = self.deriv.expr
+        dims = func.space_dimensions
+        time = func.time_dim
+        project_ind = [(time,)+tuple([dims[dim]+self.footprint[dim][i]
+                                      for dim in range(ndims)])
+                       for i in range(npts)]
+        self._vector = np.array([func[project_ind[i]] for i in range(npts)])
 
     def _get_projection_matrix(self):
         """
@@ -447,6 +506,11 @@ class Projection:
     def footprint(self):
         """The footprint of the interior stencil"""
         return self._footprint
+
+    @property
+    def vector(self):
+        """The RHS vector onto which the interpolant is mapped"""
+        return self._vector
 
     @property
     def project_matrix(self):

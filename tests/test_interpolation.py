@@ -11,7 +11,8 @@ import numpy as np
 from schism.conditions.boundary_conditions import SingleCondition
 from schism.basic.basis import Basis
 from schism.geometry.support_region import SupportRegion
-from schism.finite_differences.interpolate_project import Interpolant
+from schism.finite_differences.interpolate_project import Interpolant, \
+    Projection
 
 
 class DummyGroup:
@@ -349,3 +350,27 @@ class TestInterpolant:
                        interpolant.matrix[interpolant.rank_mask])
 
         assert np.all(np.isclose(id, np.eye(interpolant.matrix.shape[-1])))
+
+    @pytest.mark.parametrize('setup', [0, 1])
+    @pytest.mark.parametrize('func_type', ['scalar', 'vector'])
+    @pytest.mark.parametrize('deriv_type', ['dx', 'dy2'])
+    def test_projection(self, setup, func_type, deriv_type):
+        """
+        Check that the interpolant is correctly projected onto the interior
+        stencil.
+        """
+        interpolant = mask_test_setup(setup, func_type)
+        group = interpolant.group
+        basis_map = interpolant.basis_map
+
+        if deriv_type == 'dx':
+            deriv = group.funcs[0].dx
+        elif deriv_type == 'dy2':
+            deriv = group.funcs[0].dy2
+
+        projection = Projection(deriv, group, basis_map)
+
+        stencil = interpolant.project(projection)
+        print(stencil)
+
+        assert False
