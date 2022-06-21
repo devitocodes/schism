@@ -151,6 +151,8 @@ class Basis:
 
     def reduce_order(self, reduce):
         """Return the basis with reduced order"""
+        if self.order - reduce < 0:
+            raise ValueError("Order cannot be reduced below zero")
         return self.__class__(self.name+'_r'+str(reduce), self.dims,
                               self.order-reduce)
 
