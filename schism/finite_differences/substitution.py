@@ -32,6 +32,7 @@ class Substitution:
         self._geometry = self.skin.geometry
 
         self._setup_collections()
+        self._get_stencils()
 
     def _setup_collections(self):
         """
@@ -40,6 +41,43 @@ class Substitution:
         """
         self._interpolants = MultiInterpolant()
         self._projections = MultiProjection()
+
+    def _get_stencils(self):
+        """
+        Get the stencils by generating the required Interpolant and Projection
+        objects
+        """
+        radius_map = {func: func.space_order//2 for func in self.basis_map}
+        support = SupportRegion(self.basis_map, radius_map)
+        interpolant = Interpolant(support, self.group,
+                                  self.basis_map, self.skin)
+        projection = Projection(self.deriv, self.group, self.basis_map)
+
+        # Loop whilst there are points which don't yet have stencils
+        while not interpolant.all_full_rank:
+            self._interpolants.add(interpolant)
+            self._projections.add(projection)
+            if self.strategy == 'expand':
+                # Increase support region radius by one and apply to remaining
+                # points
+                support = support.expand_radius(1)
+                interpolant = Interpolant(support, self.group,
+                                          self.basis_map,
+                                          self.skin[not_rank_mask])
+
+            if self.strategy == 'reduce':
+                basis_map = {func: basis.reduce_order(2)
+                             for func, basis in interpolant.function_map}
+                interpolant = Interpolant(support, self.group,
+                                          basis_map,
+                                          self.skin[not_rank_mask])
+                projection = Projection(self.deriv, self.group, basis_map)
+
+        # Will need to append the final interpolant and projection upon exiting
+        # the loop
+        self._interpolants.add(interpolant)
+        self._projections.add(projection)
+
 
     @property
     def deriv(self):
