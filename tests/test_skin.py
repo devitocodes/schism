@@ -43,7 +43,6 @@ class DummyGeometry:
         self.interior_mask = imask
 
 
-
 class TestMisc:
     """Tests for misc functions used for modified point id"""
     grid1d = dv.Grid(shape=(11,), extent=(10.,))

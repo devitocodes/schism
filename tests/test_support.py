@@ -101,3 +101,29 @@ class TestSupport:
             assert np.amax(sr.footprint_map[f]) == s_o//2
             assert np.amin(sr.footprint_map[g]) == -1-s_o//2
             assert np.amax(sr.footprint_map[g]) == 1+s_o//2
+
+    def test_expand_radius(self):
+        """
+        Test to check that incrementing the radius of the support region
+        results in the correct footprint
+        """
+        grid = dv.Grid(shape=(11, 11), extent=(10., 10.))
+        f = dv.TimeFunction(name='f', grid=grid, space_order=4)
+        g = dv.TimeFunction(name='g', grid=grid, space_order=4)
+
+        basis_map = {f: Basis('f', grid.dimensions, f.space_order),
+                     g: Basis('g', grid.dimensions, g.space_order)}
+
+        radius_map = {f: f.space_order//2, g: g.space_order//2}
+        larger_radius_map = {f: 1+f.space_order//2, g: 1+g.space_order//2}
+
+        support = SupportRegion(basis_map, radius_map)
+        large_support = SupportRegion(basis_map, larger_radius_map)
+
+        expanded = support.expand_radius(1)
+
+        for func in (f, g):
+            for i in range(2):
+                result = expanded.footprint_map[func][i]
+                check = large_support.footprint_map[func][i]
+            assert np.all(result == check)

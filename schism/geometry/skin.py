@@ -13,7 +13,7 @@ def stencil_footprint(deriv):
             spans.append(np.arange(-s_o//2, s_o//2+1))
         else:
             spans.append(np.zeros(1))
-    msh = np.meshgrid(*spans, indexing='xy')
+    msh = np.meshgrid(*spans, indexing='ij')
     stack = [m.flatten() for m in msh]
     return np.vstack(stack).astype(int)
 

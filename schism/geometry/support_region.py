@@ -65,6 +65,11 @@ class SupportRegion:
         region.
     max_span_func : Function
         The function with the largest span
+
+    Methods
+    -------
+    expand_radius(inc)
+        Return a support region with an expanded radius
     """
     def __init__(self, basis_map, radius_map):
         self._basis_map = basis_map
@@ -105,7 +110,7 @@ class SupportRegion:
         # Make a meshgrid of indices (of int type)
         msh = np.meshgrid(*[np.arange(-radius, radius+1, dtype=int)
                             for dim in dims],
-                          indexing='xy')
+                          indexing='ij')  # Think indexing doesn't matter here
         # Mask it by radius
         mask = np.sqrt(sum(msh[i]**2 for i in range(ndims))) < radius + 0.5
         # Do np.where to get meshgrid indices
@@ -126,6 +131,25 @@ class SupportRegion:
             else:  # No offset in other dimensions
                 footprint.append(np.zeros(1+2*radius, dtype=int))
         return tuple(footprint)
+
+    def expand_radius(self, inc):
+        """
+        Return another support region with radius expanded by the increment
+        specified
+
+        Parameters
+        ----------
+        inc : int
+            The amount by which the radius should be incremented
+
+        Returns
+        -------
+        expanded : SupportRegion
+            The expanded support region
+        """
+        new_radius_map = {func: rad + inc
+                          for func, rad in self.radius_map.items()}
+        return self.__class__(self.basis_map, new_radius_map)
 
     @property
     def basis_map(self):
