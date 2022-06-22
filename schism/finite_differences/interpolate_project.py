@@ -99,16 +99,18 @@ class Interpolant:
         The group of boundary conditions which the function will be fitted to
     basis_map : dict
         Mapping between functions and approximating basis functions
-    skin : ModifiedSkin
-        The boundary-adjacent skin of points in which modified stencils are
-        required.
+    geometry : BoundaryGeometry
+        Geometry of the boundary
+    points : tuple
+        Points where an interpolant is to be fitted
     """
-    def __init__(self, support, group, basis_map, skin):
+    def __init__(self, support, group, basis_map, geometry, points):
         self._support = support
         self._group = group
         self._basis_map = basis_map
-        self._skin = skin
-        self._geometry = self.skin.geometry
+        self._geometry = geometry
+        self._points = points
+
         self._get_interior_vector()
         self._get_interior_matrix()
         self._get_stencil_points()
@@ -177,7 +179,8 @@ class Interpolant:
         for func in self.group.funcs:
             support_points = self.support.footprint_map[func]
             sten_pts[func], oob[func] = get_points_and_oob(support_points,
-                                                           self.skin)
+                                                           self.points,
+                                                           self.geometry)
         self._stencil_points = frozendict(sten_pts)
         self._oob = frozendict(oob)
 
@@ -191,7 +194,7 @@ class Interpolant:
             ndims = len(func.space_dimensions)
 
             interior_msk = np.zeros((self.support.npts_map[func],
-                                     self.skin.npts), dtype=bool)
+                                     self.npts), dtype=bool)
             interior_msk[self._oob[func]] = True
 
             in_bounds = np.logical_not(self._oob[func])
@@ -217,7 +220,7 @@ class Interpolant:
         ndims = len(func.space_dimensions)
 
         boundary_msk = np.zeros((self.support.npts_map[func],
-                                 self.skin.npts), dtype=bool)
+                                 self.npts), dtype=bool)
         boundary_msk[self._oob[func]] = False
 
         in_bounds = np.logical_not(self._oob[func])
@@ -237,7 +240,7 @@ class Interpolant:
 
         # Number of points in the support region and number of modified points
         nsten = self.support.npts_map[func]
-        nmod = self.skin.npts
+        nmod = self.npts
         nterms = sum([self.basis_map[f].nterms for f in self.group.funcs])
         ndims = len(func.space_dimensions)
 
@@ -276,7 +279,7 @@ class Interpolant:
         Assemble the matrix from the masked interior matrix and the boundary
         matrices.
         """
-        nmod = self.skin.npts
+        nmod = self.npts
         # Initialise empty interior matrix
         interior = np.zeros(self.interior_matrix.shape+(nmod,))
         interior_bcst = np.broadcast_to(self.interior_matrix[..., np.newaxis],
@@ -362,12 +365,17 @@ class Interpolant:
         return self._basis_map
 
     @property
-    def skin(self):
+    def points(self):
+        """Boundary-adjacent points at which modified stencils are required"""
+        return self._points
+
+    @property
+    def npts(self):
         """
-        The boundary-adjacent skin of points in which modified stencils are
+        The number of boundary-adjacent points at which modified stencils are
         required.
         """
-        return self._skin
+        return self.points[0].shape[0]
 
     @property
     def geometry(self):

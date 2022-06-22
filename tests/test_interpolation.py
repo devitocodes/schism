@@ -7,6 +7,7 @@ import pytest
 import os
 import devito as dv
 import numpy as np
+import sympy as sp
 
 from schism.conditions.boundary_conditions import SingleCondition
 from schism.basic.basis import Basis
@@ -101,7 +102,8 @@ def mask_test_setup(setup, func_type):
     geometry, skin = setup_geom(setup, grid)
 
     # Create the Interpolant
-    interpolant = Interpolant(support, group, basis_map, skin)
+    interpolant = Interpolant(support, group, basis_map,
+                              skin.geometry, skin.points)
 
     return interpolant
 
@@ -154,7 +156,8 @@ class TestInterpolant:
                                        for dim in range(ndims)]))
 
         # Create the Interpolant
-        interpolant = Interpolant(support, group, basis_map, skin)
+        interpolant = Interpolant(support, group, basis_map,
+                                  skin.geometry, skin.points)
         # Check the interior vector has the correct length
         if basis_dim is None:
             check_len = sum([len(support.footprint_map[func][0])
@@ -163,17 +166,15 @@ class TestInterpolant:
             check_len = nfuncs*(s_o+1)
         assert len(interpolant.interior_vector) == check_len
 
-    answers = ['Matrix([[f0[t, x - 1]], [f0[t, x]], [f0[t, x + 1]]])',
-               'Matrix([[f0[t, x - 1]], [f0[t, x]], [f0[t, x + 1]], '
-               + '[f1[t, x - 1]], [f1[t, x]], [f1[t, x + 1]]])',
-               'Matrix([[f0[t, x - 1, y - 1]], [f0[t, x, y - 1]], '
-               + '[f0[t, x + 1, y - 1]], [f0[t, x - 1, y]], [f0[t, x, y]], '
-               + '[f0[t, x + 1, y]], [f0[t, x - 1, y + 1]], '
-               + '[f0[t, x, y + 1]], [f0[t, x + 1, y + 1]]])',
-               'Matrix([[f0[t, x - 1, y]], [f0[t, x, y]], [f0[t, x + 1, y]]])',
-               'Matrix([[f0[t, x, y - 1]], [f0[t, x, y]], [f0[t, x, y + 1]]])',
-               'Matrix([[f0[t, x - 1, y, z]], [f0[t, x, y, z]], '
-               + '[f0[t, x + 1, y, z]]])']
+    answers = ['[f0[t, x - 1] f0[t, x] f0[t, x + 1]]',
+               '[f0[t, x - 1] f0[t, x] f0[t, x + 1] f1[t, x - 1] '
+               + 'f1[t, x] f1[t, x + 1]]',
+               '[f0[t, x - 1, y - 1] f0[t, x - 1, y] f0[t, x - 1, y + 1] '
+               + 'f0[t, x, y - 1]\n f0[t, x, y] f0[t, x, y + 1] '
+               + 'f0[t, x + 1, y - 1] f0[t, x + 1, y]\n f0[t, x + 1, y + 1]]',
+               '[f0[t, x - 1, y] f0[t, x, y] f0[t, x + 1, y]]',
+               '[f0[t, x, y - 1] f0[t, x, y] f0[t, x, y + 1]]',
+               '[f0[t, x - 1, y, z] f0[t, x, y, z] f0[t, x + 1, y, z]]']
 
     @pytest.mark.parametrize('ndims, basis_dim, nfuncs, ans',
                              [(1, None, 1, answers[0]),
@@ -214,7 +215,11 @@ class TestInterpolant:
                          points=tuple([np.array([], dtype=int)
                                        for dim in range(ndims)]))
         # Create the Interpolant
-        interpolant = Interpolant(support, group, basis_map, skin)
+        interpolant = Interpolant(support, group, basis_map,
+                                  skin.geometry, skin.points)
+
+        print(interpolant.interior_vector)
+
         # Check the interior vector matches the answer
         assert str(interpolant.interior_vector) == ans
 
@@ -261,7 +266,8 @@ class TestInterpolant:
                          points=tuple([np.array([], dtype=int)
                                        for dim in range(2)]))
         # Create the Interpolant
-        interpolant = Interpolant(support, group, basis_map, skin)
+        interpolant = Interpolant(support, group, basis_map,
+                                  skin.geometry, skin.points)
 
         path = os.path.dirname(os.path.abspath(__file__))
         fname = path + '/results/interpolation_test_results/interior_matrix/' \

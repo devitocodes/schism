@@ -8,7 +8,7 @@ from devito.tools.data_structures import frozendict
 from functools import reduce
 
 
-def get_points_and_oob(support_points, skin):
+def get_points_and_oob(support_points, modified_points, geometry):
     """
     Get the points used by each stencil and a mask indicating where these are
     out of bounds.
@@ -17,8 +17,10 @@ def get_points_and_oob(support_points, skin):
     ----------
     support_points : tuple
         Points in the support region of the stencil
-    skin : ModifiedSkin
-        The skin of points in which the stencil is to be applied
+    modified_points : tuple
+        Points where modified stencils are required
+    geometry : BoundaryGeometry
+        Geometry of the boundary. Used to obtain the Grid.
 
     Returns
     -------
@@ -27,10 +29,10 @@ def get_points_and_oob(support_points, skin):
     oob : ndarray
         Boolean mask for points. True where points are out of bounds
     """
-    grid = skin.geometry.grid
+    grid = geometry.grid
     ndims = len(grid.dimensions)
     points = tuple([support_points[dim][:, np.newaxis]
-                    + skin.points[dim][np.newaxis, :]
+                    + modified_points[dim][np.newaxis, :]
                     for dim in range(ndims)])
 
     # Out of bounds points
@@ -108,9 +110,11 @@ class SupportRegion:
         dims = func.space_dimensions
         ndims = len(dims)
         # Make a meshgrid of indices (of int type)
+        # Indexing type changes order of points but not points overall
+        # 'ij' results in most logical ordering however
         msh = np.meshgrid(*[np.arange(-radius, radius+1, dtype=int)
                             for dim in dims],
-                          indexing='ij')  # Think indexing doesn't matter here
+                          indexing='ij')
         # Mask it by radius
         mask = np.sqrt(sum(msh[i]**2 for i in range(ndims))) < radius + 0.5
         # Do np.where to get meshgrid indices
