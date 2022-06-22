@@ -7,7 +7,6 @@ import pytest
 import os
 import devito as dv
 import numpy as np
-import sympy as sp
 
 from schism.conditions.boundary_conditions import SingleCondition
 from schism.basic.basis import Basis

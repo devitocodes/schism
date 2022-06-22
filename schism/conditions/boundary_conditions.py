@@ -57,8 +57,10 @@ class SingleCondition:
         # TODO: Finish this
 
     def __eq__(self, other):
+        lhs_equal = self.lhs - other.lhs == 0
+        rhs_equal = self.rhs - other.rhs == 0
         if isinstance(other, self.__class__):
-            return self.__dict__ == other.__dict__
+            return lhs_equal and rhs_equal
         else:
             return False
 
