@@ -2,6 +2,7 @@
 
 import pytest
 import devito as dv
+import numpy as np
 
 from test_interpolation import setup_geom, setup_f
 from schism.basic.basis import Basis
@@ -36,4 +37,14 @@ class TestSubstitution:
 
         substitution = Substitution(deriv, group, basis_map, 'expand', skin)
 
-        assert False
+        interpolants = substitution.interpolants.interpolants
+
+        # Check that all points have stencils generated for them
+        points = sum([i.pinv.shape[0] for i in interpolants])
+        assert points == skin.npts
+
+        # Check support region is incrementally increased
+        for func in group.funcs:
+            radii = [i.support.radius_map[func] for i in interpolants]
+            check = func.space_order//2 + np.arange(len(radii))
+            assert np.all(radii == check)

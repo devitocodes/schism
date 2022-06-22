@@ -128,3 +128,13 @@ class Substitution:
     def geometry(self):
         """The boundary geometry"""
         return self._geometry
+
+    @property
+    def interpolants(self):
+        """The collection of Interpolant objects"""
+        return self._interpolants
+
+    @property
+    def projections(self):
+        """The collection of Projection objects"""
+        return self._projections
