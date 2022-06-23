@@ -70,13 +70,13 @@ class TestBCs:
                               ([dv.Eq(tau*v, sp.Matrix([0., 0.]))],
                                (tau,),
                                (SingleCondition(dv.Eq(v[0]*tau[0, 0]
-                                                  + v[1]*tau[0, 1], 0),
-                                                  funcs=(tau[0, 0], tau[0, 1],
-                                                         tau[1, 1])),
+                                                + v[1]*tau[0, 1], 0),
+                                                funcs=(tau[0, 0], tau[0, 1],
+                                                       tau[1, 1])),
                                 SingleCondition(dv.Eq(v[0]*tau[1, 0]
-                                                  + v[1]*tau[1, 1], 0),
-                                                  funcs=(tau[0, 0], tau[0, 1],
-                                                         tau[1, 1]))))])
+                                                + v[1]*tau[1, 1], 0),
+                                                funcs=(tau[0, 0], tau[0, 1],
+                                                       tau[1, 1]))))])
     def test_bc_setup(self, eqs, funcs, ans):
         """Check that BCs are correctly set up"""
         bcs = BoundaryConditions(eqs, funcs=funcs)
