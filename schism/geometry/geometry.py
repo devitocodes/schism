@@ -6,6 +6,7 @@ import numpy as np
 import devito as dv
 
 from schism.utils.environment import get_geometry_feps
+from functools import cached_property
 
 __all__ = ['BoundaryGeometry']
 
@@ -37,6 +38,9 @@ class BoundaryGeometry:
         Boolean mask for interior points
     boundary_mask : ndarray
         Boolean mask for boundary points
+    b_mask_1D : tuple
+        Tuple of boolean masks for boundary points. When using 1D stencils,
+        only the innermost point should be used for extrapolation
     boundary_points : tuple
         Boundary point indices as a length N tuple of arrays
     positions : tuple
@@ -190,3 +194,29 @@ class BoundaryGeometry:
     def n(self):
         """Boundary unit normal vector"""
         return self._normals
+
+    @cached_property
+    def b_mask_1D(self):
+        """
+        Tuple of boolean masks for boundary points. When using 1D stencils,
+        only the innermost point should be used for extrapolation.
+        """
+        ndims = len(self.grid.dimensions)
+        masks = []
+        for dim in range(ndims):
+            shift_plus = np.full(self.grid.shape, True, dtype=bool)
+            shift_minus = np.full(self.grid.shape, True, dtype=bool)
+
+            plus_slices = tuple([slice(None) if d != dim else slice(1, None)
+                                 for d in range(ndims)])
+            min_slices = tuple([slice(None) if d != dim else slice(0, -1)
+                                for d in range(ndims)])
+
+            shift_plus[min_slices] = self.interior_mask[plus_slices]
+            shift_minus[plus_slices] = self.interior_mask[min_slices]
+
+            interior_adjacent = np.logical_or(shift_plus, shift_minus)
+            masks.append(np.logical_and(interior_adjacent, self.boundary_mask))
+
+        self._b_mask_1D = tuple(masks)
+        return self._b_mask_1D
