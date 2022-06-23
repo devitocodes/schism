@@ -245,3 +245,15 @@ class TestBoundaryGeometry:
             check_mask = z < 50
 
         assert np.all(bg.interior_mask[slices] == check_mask[slices])
+
+    def test_1d_boundary_masks(self):
+        """Test the 1D versions of the boundary masks"""
+        sdf = read_sdf('45_mirror', 2)
+        bg = BoundaryGeometry(sdf)
+
+        # Trim edges as geometry calculation gets weird here
+        slices = tuple([slice(2, -2) for dim in sdf.grid.dimensions])
+
+        # In the 45 degree cases, both masks should be the same
+        assert np.all(bg.b_mask_1D[0][slices] == bg.b_mask_1D[1][slices])
+        assert np.count_nonzero(bg.b_mask_1D[0][slices]) == 97
