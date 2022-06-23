@@ -3,6 +3,7 @@
 import pytest
 import devito as dv
 import numpy as np
+import os
 
 from test_interpolation import setup_geom, setup_f, DummyGroup, \
     DummyGeometry, DummySkin
@@ -133,3 +134,43 @@ class TestSubstitution:
         elif deriv_type == 'dy2':
             assert len(interpolants) == 1  # Never reduced
             assert interpolants[0].pinv.shape == (8, 5, 20)
+
+    @pytest.mark.parametrize('func_type', ['scalar', 'vector'])
+    @pytest.mark.parametrize('deriv_type', ['dx', 'dy2', 'dxf'])
+    def test_create_weight_functions(self, func_type, deriv_type):
+        """
+        Check that the weight functions are correctly generated for a given
+        RHS vector.
+        """
+        grid = dv.Grid(shape=(3, 3), extent=(10., 10.))
+        x, y = grid.dimensions
+        geom, skin = setup_geom(0, grid)
+        f, group = setup_f(func_type, grid)
+
+        if deriv_type == 'dx':
+            deriv = group.funcs[0].dx
+        elif deriv_type == 'dy2':
+            deriv = group.funcs[0].dy2
+        elif deriv_type == 'dxf':
+            deriv = group.funcs[0].dx(x0=x+x.spacing/2)
+
+        basis_map = {func: Basis(func.name, grid.dimensions, func.space_order)
+                     for func in group.funcs}
+
+        substitution = Substitution(deriv, group, basis_map, 'expand', skin)
+
+        wnames = [f.name for f in substitution.wfuncs]
+        path = os.path.dirname(os.path.abspath(__file__))
+        fname = path + '/results/substitution_test_results/' \
+            + 'create_weight_function/' + func_type + deriv_type + '.dat'
+
+        with open(fname, 'w') as f:
+            for name in wnames:
+                f.write(name)
+                f.write(',')
+
+        with open(fname, 'r') as f:
+            names = f.read()
+            check = names.split(',')[:-1]  # Reads in extra comma
+
+        assert wnames == check

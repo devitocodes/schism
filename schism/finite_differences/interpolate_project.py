@@ -35,6 +35,7 @@ class MultiInterpolant:
     def __init__(self):
         self._interpolants = []
         self._largest_span = 0
+        self._largest_support = None
 
     def add(self, interpolant):
         """Add an Interpolant"""
@@ -43,6 +44,7 @@ class MultiInterpolant:
         max_radius = max(interpolant.support.radius_map.values())
         if max_radius > self.largest_span:
             self._largest_span = max_radius
+            self._largest_support = interpolant
 
     @property
     def interpolants(self):
@@ -56,6 +58,11 @@ class MultiInterpolant:
         MultiInterpolant.
         """
         return self._largest_span
+
+    @property
+    def largest_support(self):
+        """Interpolant with the largest support region"""
+        return self._largest_support
 
 
 class MultiProjection:

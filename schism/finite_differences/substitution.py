@@ -1,12 +1,12 @@
 """The Substitution object used to produce a single derivative substitution"""
 
 import numpy as np
+import devito as dv
 
-from schism.finite_differences.interpolate_project import (MultiInterpolant,
-                                                           MultiProjection,
-                                                           Interpolant,
-                                                           Projection)
+from schism.finite_differences.interpolate_project import MultiInterpolant, \
+    MultiProjection, Interpolant, Projection
 from schism.geometry.support_region import SupportRegion
+from itertools import chain
 
 
 class Substitution:
@@ -38,6 +38,7 @@ class Substitution:
 
         self._setup_collections()
         self._get_stencils()
+        self._setup_weight_funcs()
 
     def _setup_collections(self):
         """
@@ -99,6 +100,37 @@ class Substitution:
         self._interpolants.add(interpolant)
         self._projections.add(projection)
 
+    def _setup_weight_funcs(self):
+        """
+        Set up the functions which will be used to contain stencil weights.
+        """
+        # Get the interpolant with the largest support region
+        interp = self.interpolants.largest_support
+        rhs = interp.vector
+        rhs_nonzero = rhs != 0
+
+        grid = self.geometry.grid
+        dims = grid.dimensions
+        ndims = len(dims)
+
+        wfuncs = []
+        for item in rhs[rhs_nonzero]:
+            if isinstance(item, dv.types.Indexed):
+                indices = [str(int((item.indices[1+d]
+                                    - dims[d]).as_coeff_Mul()[0]))
+                           for d in range(ndims)]
+                underscores = ['_' for d in range(ndims)]
+                index = list(chain(*zip(underscores, indices)))
+                name = 'w_' + item.name
+                # Swap minus signs for m in identifier
+                id = ''.join(index).replace('-', 'm')
+                name += id
+                wfuncs.append(dv.Function(name=name, grid=grid))
+            else:
+                raise NotImplementedError("Non-Function RHS not implemented")
+
+        self._wfuncs = tuple(wfuncs)
+
     @property
     def deriv(self):
         """The derivative to be substituted"""
@@ -138,3 +170,8 @@ class Substitution:
     def projections(self):
         """The collection of Projection objects"""
         return self._projections
+
+    @property
+    def wfuncs(self):
+        """The weight functions"""
+        return self._wfuncs
