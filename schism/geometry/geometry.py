@@ -204,8 +204,8 @@ class BoundaryGeometry:
         ndims = len(self.grid.dimensions)
         masks = []
         for dim in range(ndims):
-            shift_plus = np.full(self.grid.shape, True, dtype=bool)
-            shift_minus = np.full(self.grid.shape, True, dtype=bool)
+            shift_plus = np.full(self.grid.shape, False, dtype=bool)
+            shift_minus = np.full(self.grid.shape, False, dtype=bool)
 
             plus_slices = tuple([slice(None) if d != dim else slice(1, None)
                                  for d in range(ndims)])

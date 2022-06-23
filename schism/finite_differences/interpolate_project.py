@@ -227,7 +227,17 @@ class Interpolant:
         # Stencil points within bounds
         pts_ib = tuple([self._stencil_points[func][dim][in_bounds]
                         for dim in range(ndims)])
-        boundary_msk[in_bounds] = self.geometry.boundary_mask[pts_ib]
+
+        # If 1D basis used, use the b_mask_1D instead
+        # Just use first, as all basis funcs should have shared dimension
+        basis_dims = self.basis_map[self.group.funcs[0]].dims
+        if len(basis_dims) == 1:
+            # Will need to find the appropriate dimension
+            dim_ind = self.geometry.grid.dimensions.index(basis_dims[0])
+            # Use the appropriate boundary mask
+            boundary_msk[in_bounds] = self.geometry.b_mask_1D[dim_ind][pts_ib]
+        else:
+            boundary_msk[in_bounds] = self.geometry.boundary_mask[pts_ib]
 
         # (0 axis is support region points)
         self._boundary_mask = boundary_msk

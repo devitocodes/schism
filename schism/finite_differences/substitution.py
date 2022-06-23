@@ -81,8 +81,8 @@ class Substitution:
                                           masked_points)
 
             elif self.strategy == 'reduce':
-                basis_map = {func: basis.reduce_order(2)
-                             for func, basis in interpolant.function_map}
+                basis_map = {func: interpolant.basis_map[func].reduce_order(2)
+                             for func in interpolant.basis_map}
                 interpolant = Interpolant(support, self.group,
                                           basis_map,
                                           self.skin.geometry,

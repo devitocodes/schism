@@ -29,6 +29,7 @@ class DummyGeometry:
         self.interior_mask = kwargs.get('interior_mask', None)
         self.boundary_mask = kwargs.get('boundary_mask', None)
         self.dense_pos = kwargs.get('dense_pos', None)
+        self.b_mask_1D = kwargs.get('b_mask_1D', None)
 
 
 class DummySkin:

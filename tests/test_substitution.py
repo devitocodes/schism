@@ -4,8 +4,10 @@ import pytest
 import devito as dv
 import numpy as np
 
-from test_interpolation import setup_geom, setup_f
+from test_interpolation import setup_geom, setup_f, DummyGroup, \
+    DummyGeometry, DummySkin
 from schism.basic.basis import Basis
+from schism.conditions.boundary_conditions import SingleCondition
 from schism.finite_differences.substitution import Substitution
 
 
@@ -38,6 +40,7 @@ class TestSubstitution:
         substitution = Substitution(deriv, group, basis_map, 'expand', skin)
 
         interpolants = substitution.interpolants.interpolants
+        projections = substitution.projections.projections
 
         # Check that all points have stencils generated for them
         points = sum([i.pinv.shape[0] for i in interpolants])
@@ -48,3 +51,85 @@ class TestSubstitution:
             radii = [i.support.radius_map[func] for i in interpolants]
             check = func.space_order//2 + np.arange(len(radii))
             assert np.all(radii == check)
+
+        # Check interpolants have matching projections
+        assert len(interpolants) == len(projections)
+
+    @pytest.mark.parametrize('deriv_type', ['dx', 'dy2'])
+    def test_get_stencils_reduce(self, deriv_type):
+        """
+        Check that _get_stencils() obtains correct stencils for all points.
+        Note that this test is for the 'reduce' strategy only.
+        """
+        grid = dv.Grid(shape=(5, 4), extent=(6., 5.))
+        x, y = grid.dimensions
+
+        int_points = (np.array([2, 1, 2, 3, 0, 1, 2, 3, 4]),
+                      np.array([2, 1, 1, 1, 0, 0, 0, 0, 0]))
+        interior_mask = np.zeros(grid.shape, dtype=bool)
+        interior_mask[int_points] = True
+
+        bou_points = (np.array([1, 2, 3, 0, 1, 3, 4, 0, 4]),
+                      np.array([3, 3, 3, 2, 2, 2, 2, 1, 1]))
+        boundary_mask = np.zeros(grid.shape, dtype=bool)
+        boundary_mask[bou_points] = True
+
+        bou_pts_x = (np.array([1, 3, 0, 4]),
+                     np.array([2, 2, 1, 1]))
+        bou_msk_x = np.zeros(grid.shape, dtype=bool)
+        bou_msk_x[bou_pts_x] = True
+        bou_pts_y = (np.array([2, 1, 3, 0, 4]),
+                     np.array([3, 2, 2, 1, 1]))
+        bou_msk_y = np.zeros(grid.shape, dtype=bool)
+        bou_msk_y[bou_pts_y] = True
+        b_mask_1D = (bou_msk_x, bou_msk_y)
+
+        r2 = np.sqrt(2)/2
+        pos = (np.array([r2, 0, -r2, r2, -r2, r2, -r2, -r2, r2]),
+               np.array([-r2, 0.5, -r2, -r2, r2, r2, -r2, r2, r2]))
+        dense_pos = [np.zeros(grid.shape) for dim in range(2)]
+        for dim in range(2):
+            dense_pos[dim][bou_points] = pos[dim]
+        geom = DummyGeometry(grid=grid, interior_mask=interior_mask,
+                             boundary_mask=boundary_mask, dense_pos=dense_pos,
+                             b_mask_1D=b_mask_1D)
+
+        f = dv.TimeFunction(name='f', grid=grid, space_order=4)
+        if deriv_type == 'dx':
+            deriv = f.dx
+            conditions = (SingleCondition(dv.Eq(f, 0)),)
+
+            points = (np.array([2, 1, 2, 3]),
+                      np.array([2, 1, 1, 1]))
+            skin = DummySkin(geometry=geom, points=points)
+        elif deriv_type == 'dy2':
+            deriv = f.dy2
+            conditions = (SingleCondition(dv.Eq(f, 0)),
+                          SingleCondition(dv.Eq(f.dy2, 0)),
+                          SingleCondition(dv.Eq(f.dy4, 0)))
+            points = (np.array([2, 1, 2, 3, 0, 1, 3, 4]),
+                      np.array([2, 1, 1, 1, 0, 0, 0, 0]))
+            skin = DummySkin(geometry=geom, points=points)
+
+        group = DummyGroup(funcs=(f,), conditions=conditions)
+
+        basis_map = {func: Basis(func.name, deriv.dims, func.space_order)
+                     for func in group.funcs}
+
+        substitution = Substitution(deriv, group, basis_map, 'reduce', skin)
+
+        interpolants = substitution.interpolants.interpolants
+
+        # Check that all points have stencils generated for them
+        points = sum([i.pinv.shape[0] for i in interpolants])
+        assert points == skin.npts
+
+        # Check order is incrementally reduced for the dx case
+        if deriv_type == 'dx':
+            assert len(interpolants) == 2  # Reduced once
+            assert interpolants[0].pinv.shape == (3, 5, 10)
+            assert interpolants[1].pinv.shape == (1, 3, 10)
+            # Check order is never reduced in the dy2 case
+        elif deriv_type == 'dy2':
+            assert len(interpolants) == 1  # Never reduced
+            assert interpolants[0].pinv.shape == (8, 5, 20)
