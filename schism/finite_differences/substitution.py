@@ -10,6 +10,7 @@ from schism.geometry.skin import stencil_footprint
 from schism.finite_differences.tools import get_sten_vector
 from itertools import chain
 from devito.tools.data_structures import frozendict
+from functools import reduce
 
 
 class Substitution:
@@ -43,6 +44,7 @@ class Substitution:
         self._get_stencils()
         self._setup_weight_funcs()
         self._fill_weight_funcs()
+        self._form_expression()
 
     def _setup_collections(self):
         """
@@ -195,6 +197,25 @@ class Substitution:
                     errmsg = "Non-Function RHS not implemented"
                     raise NotImplementedError(errmsg)
 
+    def _form_expression(self):
+        """Form the expression for the derivative"""
+        # Get the denominator
+        order = self.deriv.deriv_order
+        if type(order) == int:  # For derivs wrt one dim, deriv order is int
+            order = (order,)
+        dims = self.deriv.dims
+        denom_args = [dim.spacing**ord for dim, ord in zip(dims, order)]
+        denom = reduce(lambda a, b: a*b, denom_args)
+        # Get the numerator
+        # Multiply each weight by its corresponding expression
+        num_args = [w*f for w, f in zip(self.weight_map.keys(),
+                                        self.weight_map.values())]
+        num = sum(num_args)
+        # Combine them
+        expr = num/denom
+        # Set self.expr
+        self._expr = expr
+
     @property
     def deriv(self):
         """The derivative to be substituted"""
@@ -244,3 +265,8 @@ class Substitution:
     def weight_map(self):
         """Mapping between stencil positions and weights"""
         return self._weight_map
+
+    @property
+    def expr(self):
+        """The symbolic derivative expression"""
+        return self._expr
