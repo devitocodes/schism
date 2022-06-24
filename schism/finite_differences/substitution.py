@@ -133,7 +133,7 @@ class Substitution:
                 name += id
                 wfunc = dv.Function(name=name, grid=grid)
                 wfuncs.append(wfunc)
-                weight_map[tuple(indices)] = wfunc
+                weight_map[item] = wfunc
             else:
                 raise NotImplementedError("Non-Function RHS not implemented")
 
@@ -146,6 +146,7 @@ class Substitution:
         respective coefficients.
         """
         self._fill_standard_weights()
+        self._fill_modified_weights()
 
     def _fill_standard_weights(self):
         """
@@ -155,10 +156,44 @@ class Substitution:
         footprint = stencil_footprint(self.deriv)
         interior_stencil = get_sten_vector(self.deriv, footprint)
 
+        expr = self.deriv.expr
+        t = expr.time_dim
+        dims = expr.space_dimensions
+
         for i in footprint.shape[-1]:
-            ind = tuple(footprint[:, i])
-            wfunc = self.weight_map[ind]
+            ind = footprint[:, i]
+            func_index = (t,) + tuple([dims[i]+ind[i]
+                                       for i in range(len(dims))])
+            wfunc = self.weight_map[expr[func_index]]
             wfunc.data[self.geometry.interior_mask] = interior_stencil[i]
+
+    def _fill_modified_weights(self):
+        """Fill the weight functions with the modified weights"""
+        interpolants = self.interpolants.interpolants
+        projections = self.projections.projections
+
+        for i in range(len(interpolants)):
+            interp = interpolants[i]
+            projec = projections[i]
+            # Points for this interpolant
+            mod_pts = interp.points[interp.rank_mask]
+            # Get the stencils
+            stencils = interp.project(projec)
+
+            # Get the stencil points
+            rhs = interp.vector
+            rhs_nonzero = rhs != 0
+            rhs_masked = rhs[rhs_nonzero]
+            # Now loop over points in this stencil
+            for j in range(len(rhs_masked)):
+                item = rhs_masked[j]
+                if isinstance(item, dv.types.Indexed):
+                    wfunc = self.weight_map[item]
+                    wfunc.data[mod_pts] = stencils[:, j]
+
+                else:
+                    errmsg = "Non-Function RHS not implemented"
+                    raise NotImplementedError(errmsg)
 
     @property
     def deriv(self):
