@@ -15,6 +15,33 @@ from schism.finite_differences.substitution import Substitution
 from schism import BoundaryGeometry, BoundaryConditions
 
 
+def weights_test_setup():
+    """Perform setup for the weight tests"""
+    # Load the flat 2D sdf
+    sdf = read_sdf('horizontal', 2)
+    # Create a geometry from it
+    bg = BoundaryGeometry(sdf)
+    grid = bg.grid
+    f = dv.TimeFunction(name='f', grid=grid, space_order=4)
+    # Deriv will be dy2
+    deriv = f.dy2
+    # Pressure free-surface bcs
+    bcs = BoundaryConditions([dv.Eq(f, 0),
+                              dv.Eq(f.dx2+f.dx2, 0),
+                              dv.Eq(f.dx4 + 2*f.dx2dy2 + f.dy4, 0)])
+    group = bcs.get_group(f)
+    # Create a skin from that
+    skin = ModifiedSkin(deriv, bg)
+    # Create a basis map
+    basis_map = {f: Basis(name=f.name,
+                          dims=f.space_dimensions,
+                          order=f.space_order)}
+
+    # Create the Substitution
+    subs = Substitution(deriv, group, basis_map, 'expand', skin)
+    return subs
+
+
 class TestSubstitution:
     """Tests for the Substitution object"""
 
@@ -180,28 +207,8 @@ class TestSubstitution:
 
     def test_fill_weights_coverage(self):
         """Check that the stencils get filled everywhere"""
-        # Load the flat 2D sdf
-        sdf = read_sdf('horizontal', 2)
-        # Create a geometry from it
-        bg = BoundaryGeometry(sdf)
-        grid = bg.grid
-        f = dv.TimeFunction(name='f', grid=grid, space_order=4)
-        # Deriv will be dy2
-        deriv = f.dy2
-        # Pressure free-surface bcs
-        bcs = BoundaryConditions([dv.Eq(f, 0),
-                                  dv.Eq(f.dx2+f.dx2, 0),
-                                  dv.Eq(f.dx4 + 2*f.dx2dy2 + f.dy4, 0)])
-        group = bcs.get_group(f)
-        # Create a skin from that
-        skin = ModifiedSkin(deriv, bg)
-        # Create a basis map
-        basis_map = {f: Basis(name=f.name,
-                              dims=f.space_dimensions,
-                              order=f.space_order)}
-
-        # Create the Substitution
-        subs = Substitution(deriv, group, basis_map, 'expand', skin)
+        subs = weights_test_setup()
+        bg = subs.geometry
 
         # Check that the weighting of the centre stencil point is nonzero
         # throughout the interior
@@ -213,3 +220,14 @@ class TestSubstitution:
                 assert np.all(np.abs(func.data[bg.interior_mask]) >= feps)
                 not_interior = np.logical_not(bg.interior_mask)
                 assert np.all(np.abs(func.data[not_interior]) <= feps)
+
+    def test_fill_weights_consistency(self):
+        """Check that stencils are filled consistently"""
+        subs = weights_test_setup()
+
+        feps = np.finfo(float).eps
+        for term in subs.weight_map:
+            func = subs.weight_map[term]
+            maxvals = np.amax(func.data[2:-2], axis=0)
+            minvals = np.amin(func.data[2:-2], axis=0)
+            assert np.all(np.abs(maxvals - minvals) <= feps)
