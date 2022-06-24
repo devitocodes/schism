@@ -66,6 +66,9 @@ class Boundary:
 
             substitution = Substitution(deriv, group, basis_map, self.strategy,
                                         skin)
+            subs[deriv] = substitution.expr
+
+        return frozendict(subs)
 
     def _get_filtered_group(self, deriv):
         """
