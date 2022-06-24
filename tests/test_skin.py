@@ -88,7 +88,6 @@ class TestSkin:
             np.array([0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3]),
             np.array([0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2]))
 
-
     @pytest.mark.parametrize('deriv, geometry, ans',
                              [(f2d.dx, geom0, ans0),
                               (f2d.dy, geom0, ans0),
@@ -96,7 +95,7 @@ class TestSkin:
                               (f3d.dx, geom1, ans2)])
     def test_modified_points(self, deriv, geometry, ans):
         """Check that modified points are correctly identified"""
-        skin =  ModifiedSkin(deriv, geometry)
+        skin = ModifiedSkin(deriv, geometry)
 
-        for i in range(len(skin.modified_points)):
-            assert np.all(skin.modified_points[i] == ans[i])
+        for i in range(len(skin.points)):
+            assert np.all(skin.points[i] == ans[i])

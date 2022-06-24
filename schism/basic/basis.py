@@ -147,7 +147,7 @@ class Basis:
         Take a derivative of the expression given a set of tuples containing
         dimensions and their respective derivatives
         """
-        return self.expr.diff(derivative)
+        return self.expr.diff(*derivative)
 
     def reduce_order(self, reduce):
         """Return the basis with reduced order"""

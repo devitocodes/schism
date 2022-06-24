@@ -141,14 +141,19 @@ class SingleCondition:
             except KeyError:
                 # Should never end up here
                 raise ValueError("No basis generated for required function")
-            if type(deriv.deriv_order) != tuple:
+            if type(deriv.deriv_order) != dv.types.utils.DimensionTuple:
                 d_o = (deriv.deriv_order,)
+                print("Did the wrong thing")
+                print(type(deriv.deriv_order))
             else:
                 d_o = deriv.deriv_order
             # Derivs to take of the basis
+            print(deriv.dims, d_o)
             b_derivs = tuple([(deriv.dims[i], d_o[i])
                               for i in range(len(deriv.dims))])
-            reps[deriv] = basis.deriv(*b_derivs)
+            print("b_derivs", *b_derivs)
+            print(len(b_derivs))
+            reps[deriv] = basis.deriv(b_derivs)
         return sp.simplify(self.lhs.subs(reps))
 
     @property
