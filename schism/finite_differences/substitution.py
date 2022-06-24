@@ -6,7 +6,10 @@ import devito as dv
 from schism.finite_differences.interpolate_project import MultiInterpolant, \
     MultiProjection, Interpolant, Projection
 from schism.geometry.support_region import SupportRegion
+from schism.geometry.skin import stencil_footprint
+from schism.finite_differences.tools import get_sten_vector
 from itertools import chain
+from devito.tools.data_structures import frozendict
 
 
 class Substitution:
@@ -39,6 +42,7 @@ class Substitution:
         self._setup_collections()
         self._get_stencils()
         self._setup_weight_funcs()
+        self._fill_weight_funcs()
 
     def _setup_collections(self):
         """
@@ -114,22 +118,47 @@ class Substitution:
         ndims = len(dims)
 
         wfuncs = []
+        weight_map = {}
         for item in rhs[rhs_nonzero]:
             if isinstance(item, dv.types.Indexed):
-                indices = [str(int((item.indices[1+d]
-                                    - dims[d]).as_coeff_Mul()[0]))
+                indices = [int((item.indices[1+d]
+                               - dims[d]).as_coeff_Mul()[0])
                            for d in range(ndims)]
                 underscores = ['_' for d in range(ndims)]
-                index = list(chain(*zip(underscores, indices)))
+                indices_str = [str(i) for i in indices]
+                index = list(chain(*zip(underscores, indices_str)))
                 name = 'w_' + item.name
                 # Swap minus signs for m in identifier
                 id = ''.join(index).replace('-', 'm')
                 name += id
-                wfuncs.append(dv.Function(name=name, grid=grid))
+                wfunc = dv.Function(name=name, grid=grid)
+                wfuncs.append(wfunc)
+                weight_map[tuple(indices)] = wfunc
             else:
                 raise NotImplementedError("Non-Function RHS not implemented")
 
         self._wfuncs = tuple(wfuncs)
+        self._weight_map = frozendict(weight_map)
+
+    def _fill_weight_funcs(self):
+        """
+        Fill the data attributes of the stencil weight functions with their
+        respective coefficients.
+        """
+        self._fill_standard_weights()
+
+    def _fill_standard_weights(self):
+        """
+        Do an initial fill of the weight functions at interor points with the
+        standard stencil weights
+        """
+        footprint = stencil_footprint(self.deriv)
+        interior_stencil = get_sten_vector(self.deriv, footprint)
+
+        for i in footprint.shape[-1]:
+            ind = tuple(footprint[:, i])
+            wfunc = self.weight_map[ind]
+            wfunc.data[self.geometry.interior_mask] = interior_stencil[i]
 
     @property
     def deriv(self):
@@ -175,3 +204,8 @@ class Substitution:
     def wfuncs(self):
         """The weight functions"""
         return self._wfuncs
+
+    @property
+    def weight_map(self):
+        """Mapping between stencil positions and weights"""
+        return self._weight_map
