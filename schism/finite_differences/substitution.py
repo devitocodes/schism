@@ -121,6 +121,7 @@ class Substitution:
 
         wfuncs = []
         weight_map = {}
+        data_map = {item: np.zeros(grid.shape) for item in rhs[rhs_nonzero]}
         for item in rhs[rhs_nonzero]:
             if isinstance(item, dv.types.Indexed):
                 indices = [int((item.indices[1+d]
@@ -140,6 +141,7 @@ class Substitution:
                 raise NotImplementedError("Non-Function RHS not implemented")
 
         self._wfuncs = tuple(wfuncs)
+        self._data_map = frozendict(data_map)
         self._weight_map = frozendict(weight_map)
 
     def _fill_weight_funcs(self):
@@ -149,6 +151,12 @@ class Substitution:
         """
         self._fill_standard_weights()
         self._fill_modified_weights()
+
+        # Fill weight data from data arrays
+        # Can't currently directly fill them due to bug when indexing function
+        # data with numpy arrays whilst filling from another array
+        for term in self.weight_map:
+            self.weight_map[term].data[:] = self.data_map[term]
 
     def _fill_standard_weights(self):
         """
@@ -162,23 +170,25 @@ class Substitution:
         t = expr.time_dim
         dims = expr.space_dimensions
 
-        for i in footprint.shape[-1]:
+        for i in range(footprint.shape[-1]):
             ind = footprint[:, i]
             func_index = (t,) + tuple([dims[i]+ind[i]
                                        for i in range(len(dims))])
-            wfunc = self.weight_map[expr[func_index]]
-            wfunc.data[self.geometry.interior_mask] = interior_stencil[i]
+            wdata = self.data_map[expr[func_index]]
+            wdata[self.geometry.interior_mask] = interior_stencil[i]
 
     def _fill_modified_weights(self):
         """Fill the weight functions with the modified weights"""
         interpolants = self.interpolants.interpolants
         projections = self.projections.projections
+        ndims = len(self.geometry.grid.dimensions)
 
         for i in range(len(interpolants)):
             interp = interpolants[i]
             projec = projections[i]
             # Points for this interpolant
-            mod_pts = interp.points[interp.rank_mask]
+            mod_pts = tuple([interp.points[d][interp.rank_mask]
+                             for d in range(ndims)])
             # Get the stencils
             stencils = interp.project(projec)
 
@@ -190,8 +200,8 @@ class Substitution:
             for j in range(len(rhs_masked)):
                 item = rhs_masked[j]
                 if isinstance(item, dv.types.Indexed):
-                    wfunc = self.weight_map[item]
-                    wfunc.data[mod_pts] = stencils[:, j]
+                    wdata = self.data_map[item]
+                    wdata[mod_pts] = stencils[:, j]
 
                 else:
                     errmsg = "Non-Function RHS not implemented"
@@ -265,6 +275,11 @@ class Substitution:
     def weight_map(self):
         """Mapping between stencil positions and weights"""
         return self._weight_map
+
+    @property
+    def data_map(self):
+        """Mapping between stencil positions and weight data"""
+        return self._data_map
 
     @property
     def expr(self):

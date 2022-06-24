@@ -70,7 +70,7 @@ class ModifiedSkin:
         mp = mp[:, interior_mask]
 
         self._mod_points = tuple([mp[i] for i in range(mp.shape[0])])
-        self._npts = self.modified_points[0].shape[0]
+        self._npts = self.points[0].shape[0]
 
     @property
     def deriv(self):
@@ -83,7 +83,7 @@ class ModifiedSkin:
         return self._geometry
 
     @property
-    def modified_points(self):
+    def points(self):
         """Points where the derivative stencil will be modified"""
         return self._mod_points
 

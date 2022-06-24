@@ -7,9 +7,12 @@ import os
 
 from test_interpolation import setup_geom, setup_f, DummyGroup, \
     DummyGeometry, DummySkin
+from test_geometry import read_sdf
+from schism.geometry.skin import ModifiedSkin
 from schism.basic.basis import Basis
 from schism.conditions.boundary_conditions import SingleCondition
 from schism.finite_differences.substitution import Substitution
+from schism import BoundaryGeometry, BoundaryConditions
 
 
 class TestSubstitution:
@@ -174,3 +177,39 @@ class TestSubstitution:
             check = names.split(',')[:-1]  # Reads in extra comma
 
         assert wnames == check
+
+    def test_fill_weights_coverage(self):
+        """Check that the stencils get filled everywhere"""
+        # Load the flat 2D sdf
+        sdf = read_sdf('horizontal', 2)
+        # Create a geometry from it
+        bg = BoundaryGeometry(sdf)
+        grid = bg.grid
+        f = dv.TimeFunction(name='f', grid=grid, space_order=4)
+        # Deriv will be dy2
+        deriv = f.dy2
+        # Pressure free-surface bcs
+        bcs = BoundaryConditions([dv.Eq(f, 0),
+                                  dv.Eq(f.dx2+f.dx2, 0),
+                                  dv.Eq(f.dx4 + 2*f.dx2dy2 + f.dy4, 0)])
+        group = bcs.get_group(f)
+        # Create a skin from that
+        skin = ModifiedSkin(deriv, bg)
+        # Create a basis map
+        basis_map = {f: Basis(name=f.name,
+                              dims=f.space_dimensions,
+                              order=f.space_order)}
+
+        # Create the Substitution
+        subs = Substitution(deriv, group, basis_map, 'expand', skin)
+
+        # Check that the weighting of the centre stencil point is nonzero
+        # throughout the interior
+        # Also assert that it is zeroed on the exterior
+        feps = np.finfo(float).eps
+        for term in subs.weight_map:
+            func = subs.weight_map[term]
+            if func.name == 'w_f_0_0':
+                assert np.all(np.abs(func.data[bg.interior_mask]) >= feps)
+                not_interior = np.logical_not(bg.interior_mask)
+                assert np.all(np.abs(func.data[not_interior]) <= feps)
