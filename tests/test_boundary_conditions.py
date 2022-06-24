@@ -190,7 +190,9 @@ class TestBC:
                               (dv.Eq(f, 0), {f: basisfy},
                                'y**2*d_f_y(2,)/2 + y*d_f_y(1,) + d_f_y(0,)'),
                               (dv.Eq(f.dx2, 0), {f: basisfx}, 'd_f_x(2,)'),
-                              (dv.Eq(f.dy2, 0), {f: basisfy}, 'd_f_y(2,)')])
+                              (dv.Eq(f.dy2, 0), {f: basisfy}, 'd_f_y(2,)'),
+                              (dv.Eq(f.dxdy, 0), {f: basisf2D},
+                               'd_f_2d(1, 1)')])
     def test_basis_substitution(self, bc, basis_map, ans):
         """
         Check that substituting basis functions in yields the correct
