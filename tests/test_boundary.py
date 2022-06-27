@@ -64,7 +64,7 @@ class TestSubstitutions:
                              [([dv.Eq(f, 0), dv.Eq(f.dx2, 0), dv.Eq(f.dy2, 0)],
                                True, f.dx2),
                               ([dv.Eq(f, 0), dv.Eq(f.dx2, 0), dv.Eq(f.dy2, 0)],
-                                True, f.dy2),
+                               True, f.dy2),
                               ([dv.Eq(f, 0), dv.Eq(f.laplace, 0)],
                                False, f.dx2),
                               ([dv.Eq(f, 0), dv.Eq(f.laplace, 0)],
