@@ -51,6 +51,7 @@ def setup_geom(setup, grid):
         interior_mask[:, :2] = True
         boundary_mask[:, 2] = True
         dense_pos[1][:, 2] = 0.4
+        b_mask_1D = (np.zeros(grid.shape, dtype=bool), boundary_mask.copy())
 
     else:  # Tilted surface
         skin_points = (np.array([0, 0, 1, 1, 2]),
@@ -63,9 +64,14 @@ def setup_geom(setup, grid):
         positions = np.array([np.sqrt(2)/2, -np.sqrt(2)/2, np.sqrt(2)/2])
         dense_pos[0][boundary] = positions
         dense_pos[1][boundary] = positions
+        b_mask_template = np.zeros(grid.shape)
+        b_mask_1D_points = (np.array([1, 2]), np.array([2, 1]))
+        b_mask_template[b_mask_1D_points] = True
+        b_mask_1D = (b_mask_template.copy(), b_mask_template.copy())
 
     geometry = DummyGeometry(grid=grid, interior_mask=interior_mask,
-                             boundary_mask=boundary_mask, dense_pos=dense_pos)
+                             boundary_mask=boundary_mask, dense_pos=dense_pos,
+                             b_mask_1D=b_mask_1D)
     skin = DummySkin(geometry=geometry, points=skin_points)
 
     return geometry, skin
@@ -150,6 +156,9 @@ class TestInterpolant:
                                  boundary_mask=np.full(grid.shape, False,
                                                        dtype=bool),
                                  dense_pos=tuple([np.full(grid.shape, 0)
+                                                  for dim in range(ndims)]),
+                                 b_mask_1D=tuple([np.full(grid.shape, False,
+                                                          dtype=bool)
                                                   for dim in range(ndims)]))
         skin = DummySkin(geometry=geometry,
                          points=tuple([np.array([], dtype=int)
@@ -210,6 +219,9 @@ class TestInterpolant:
                                  boundary_mask=np.full(grid.shape, False,
                                                        dtype=bool),
                                  dense_pos=tuple([np.full(grid.shape, 0)
+                                                  for dim in range(ndims)]),
+                                 b_mask_1D=tuple([np.full(grid.shape, False,
+                                                          dtype=bool)
                                                   for dim in range(ndims)]))
         skin = DummySkin(geometry=geometry,
                          points=tuple([np.array([], dtype=int)
@@ -261,6 +273,9 @@ class TestInterpolant:
                                  boundary_mask=np.full(grid.shape, False,
                                                        dtype=bool),
                                  dense_pos=tuple([np.full(grid.shape, 0)
+                                                  for dim in range(2)]),
+                                 b_mask_1D=tuple([np.full(grid.shape, False,
+                                                          dtype=bool)
                                                   for dim in range(2)]))
         skin = DummySkin(geometry=geometry,
                          points=tuple([np.array([], dtype=int)
