@@ -3,6 +3,7 @@
 import devito as dv
 import numpy as np
 import sympy as sp
+import pytest
 
 from test_geometry import read_sdf
 from schism import BoundaryGeometry, BoundaryConditions, Boundary
@@ -40,7 +41,8 @@ def sinusoid(func, x, ppw, deriv=0):
 class TestHorizontalSetup:
     """Simple tests based on a horizontal boundary"""
 
-    def test_horizontal_convergence(self):
+    @pytest.mark.parametrize('s_o', [2, 4, 6])
+    def test_horizontal_convergence(self, s_o):
         """
         Convergence test for immersed boundary stencils at a horizontal surface
         0.5 dy above the last interior point.
@@ -51,13 +53,24 @@ class TestHorizontalSetup:
         bg = BoundaryGeometry(sdf)
         grid = bg.grid
         # Currently hardcoded to fourth order
-        f = dv.TimeFunction(name='f', grid=grid, space_order=4)
+        f = dv.TimeFunction(name='f', grid=grid, space_order=s_o)
         # Deriv will be dy2
         deriv = (f.dy2,)  # Wants to be tuple
+
         # Pressure free-surface bcs
-        bcs = BoundaryConditions([dv.Eq(f, 0),
-                                  dv.Eq(f.dx2+f.dx2, 0),
-                                  dv.Eq(f.dx4 + 2*f.dx2dy2 + f.dy4, 0)])
+        if s_o == 2:
+            bcs = BoundaryConditions([dv.Eq(f, 0),
+                                      dv.Eq(f.dx2+f.dx2, 0)])
+        elif s_o == 4:
+            bcs = BoundaryConditions([dv.Eq(f, 0),
+                                      dv.Eq(f.dx2+f.dx2, 0),
+                                      dv.Eq(f.dx4 + 2*f.dx2dy2 + f.dy4, 0)])
+        elif s_o == 6:
+            bcs = BoundaryConditions([dv.Eq(f, 0),
+                                      dv.Eq(f.dx2+f.dx2, 0),
+                                      dv.Eq(f.dx4 + 2*f.dx2dy2 + f.dy4, 0),
+                                      dv.Eq(f.dx6 + 3*f.dx4dy2
+                                            + 3*f.dx2dy4 + f.dy6, 0)])
 
         boundary = Boundary(bcs, bg)
         subs = boundary.substitutions(deriv)
@@ -69,7 +82,12 @@ class TestHorizontalSetup:
         op = dv.Operator(eq)
 
         errs = []
-        refinements = [1, 2, 4, 8, 16]
+
+        if s_o == 2 or s_o == 4:
+            refinements = [1, 2, 4, 8, 16]
+        elif s_o == 6:
+            # Tighter range as you hit the noise floor otherwise
+            refinements = [1, 2, 3, 4]
         for refinement in refinements:
             f.data[:] = 0  # Reset the data
             f.data[0] = sinusoid('sin', yinds, refinement*10, deriv=0)
@@ -79,9 +97,11 @@ class TestHorizontalSetup:
             # (as I'm expanding the function, not shrinking the grid)
             err = f.data[-1]*10**2
             err -= sinusoid('sin', yinds, refinement*10, deriv=2)
+
             # Trim down to interior and exclude edges
-            err_trimmed = err[2:-2, 2:50]
+            err_trimmed = err[s_o//2:-s_o//2, s_o//2:50]
             errs.append(float(np.amax(np.abs(err_trimmed))))
 
         grad = np.polyfit(np.log10(refinements), np.log10(errs), 1)[0]
-        assert grad <= -4
+
+        assert grad <= -s_o
