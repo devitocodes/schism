@@ -52,7 +52,7 @@ class TestHorizontalSetup:
         # Create a geometry from it
         bg = BoundaryGeometry(sdf)
         grid = bg.grid
-        # Currently hardcoded to fourth order
+
         f = dv.TimeFunction(name='f', grid=grid, space_order=s_o)
         # Deriv will be dy2
         deriv = (f.dy2,)  # Wants to be tuple
@@ -60,14 +60,14 @@ class TestHorizontalSetup:
         # Pressure free-surface bcs
         if s_o == 2:
             bcs = BoundaryConditions([dv.Eq(f, 0),
-                                      dv.Eq(f.dx2+f.dx2, 0)])
+                                      dv.Eq(f.dx2+f.dy2, 0)])
         elif s_o == 4:
             bcs = BoundaryConditions([dv.Eq(f, 0),
-                                      dv.Eq(f.dx2+f.dx2, 0),
+                                      dv.Eq(f.dx2+f.dy2, 0),
                                       dv.Eq(f.dx4 + 2*f.dx2dy2 + f.dy4, 0)])
         elif s_o == 6:
             bcs = BoundaryConditions([dv.Eq(f, 0),
-                                      dv.Eq(f.dx2+f.dx2, 0),
+                                      dv.Eq(f.dx2+f.dy2, 0),
                                       dv.Eq(f.dx4 + 2*f.dx2dy2 + f.dy4, 0),
                                       dv.Eq(f.dx6 + 3*f.dx4dy2
                                             + 3*f.dx2dy4 + f.dy6, 0)])
