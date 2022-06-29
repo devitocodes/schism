@@ -194,11 +194,6 @@ class TestSubstitution:
         fname = path + '/results/substitution_test_results/' \
             + 'create_weight_function/' + func_type + deriv_type + '.dat'
 
-        with open(fname, 'w') as f:
-            for name in wnames:
-                f.write(name)
-                f.write(',')
-
         with open(fname, 'r') as f:
             names = f.read()
             check = names.split(',')[:-1]  # Reads in extra comma
@@ -235,25 +230,26 @@ class TestSubstitution:
     def test_returned_expr(self):
         """Check that the correct expression is returned"""
         subs = weights_test_setup()
-        ans = '(w_f_0_0(x, y)*f[t, x, y] + w_f_0_1(x, y)*f[t, x, y + 1] ' \
-            + '+ w_f_0_2(x, y)*f[t, x, y + 2] ' \
-            + '+ w_f_0_m1(x, y)*f[t, x, y - 1] ' \
-            + '+ w_f_0_m2(x, y)*f[t, x, y - 2] ' \
-            + '+ w_f_1_0(x, y)*f[t, x + 1, y] ' \
-            + '+ w_f_1_1(x, y)*f[t, x + 1, y + 1] ' \
-            + '+ w_f_1_2(x, y)*f[t, x + 1, y + 2] ' \
-            + '+ w_f_1_m1(x, y)*f[t, x + 1, y - 1] ' \
-            + '+ w_f_1_m2(x, y)*f[t, x + 1, y - 2] ' \
-            + '+ w_f_2_0(x, y)*f[t, x + 2, y] ' \
-            + '+ w_f_2_1(x, y)*f[t, x + 2, y + 1] ' \
-            + '+ w_f_2_m1(x, y)*f[t, x + 2, y - 1] ' \
-            + '+ w_f_m1_0(x, y)*f[t, x - 1, y] ' \
-            + '+ w_f_m1_1(x, y)*f[t, x - 1, y + 1] ' \
-            + '+ w_f_m1_2(x, y)*f[t, x - 1, y + 2] ' \
-            + '+ w_f_m1_m1(x, y)*f[t, x - 1, y - 1] ' \
-            + '+ w_f_m1_m2(x, y)*f[t, x - 1, y - 2] ' \
-            + '+ w_f_m2_0(x, y)*f[t, x - 2, y] ' \
-            + '+ w_f_m2_1(x, y)*f[t, x - 2, y + 1] ' \
-            + '+ w_f_m2_m1(x, y)*f[t, x - 2, y - 1])/h_y**2'
+        ans = '(w_f_dy2_0_0(x, y)*f[t, x, y] ' \
+            + '+ w_f_dy2_0_1(x, y)*f[t, x, y + 1] ' \
+            + '+ w_f_dy2_0_2(x, y)*f[t, x, y + 2] ' \
+            + '+ w_f_dy2_0_m1(x, y)*f[t, x, y - 1] ' \
+            + '+ w_f_dy2_0_m2(x, y)*f[t, x, y - 2] ' \
+            + '+ w_f_dy2_1_0(x, y)*f[t, x + 1, y] ' \
+            + '+ w_f_dy2_1_1(x, y)*f[t, x + 1, y + 1] ' \
+            + '+ w_f_dy2_1_2(x, y)*f[t, x + 1, y + 2] ' \
+            + '+ w_f_dy2_1_m1(x, y)*f[t, x + 1, y - 1] ' \
+            + '+ w_f_dy2_1_m2(x, y)*f[t, x + 1, y - 2] ' \
+            + '+ w_f_dy2_2_0(x, y)*f[t, x + 2, y] ' \
+            + '+ w_f_dy2_2_1(x, y)*f[t, x + 2, y + 1] ' \
+            + '+ w_f_dy2_2_m1(x, y)*f[t, x + 2, y - 1] ' \
+            + '+ w_f_dy2_m1_0(x, y)*f[t, x - 1, y] ' \
+            + '+ w_f_dy2_m1_1(x, y)*f[t, x - 1, y + 1] ' \
+            + '+ w_f_dy2_m1_2(x, y)*f[t, x - 1, y + 2] ' \
+            + '+ w_f_dy2_m1_m1(x, y)*f[t, x - 1, y - 1] ' \
+            + '+ w_f_dy2_m1_m2(x, y)*f[t, x - 1, y - 2] ' \
+            + '+ w_f_dy2_m2_0(x, y)*f[t, x - 2, y] ' \
+            + '+ w_f_dy2_m2_1(x, y)*f[t, x - 2, y + 1] ' \
+            + '+ w_f_dy2_m2_m1(x, y)*f[t, x - 2, y - 1])/h_y**2'
 
         assert str(subs.expr) == ans

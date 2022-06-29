@@ -115,8 +115,8 @@ class Substitution:
         if type(deriv_order) == int:
             deriv_order = (deriv_order,)  # Put in a tuple
         deriv_dims = self.deriv.dims
-        deriv_tag = '_'.join([d.name+str(o)
-                              for d, o in zip(deriv_dims, deriv_order)])
+        deriv_tag = ''.join([d.name+str(o)
+                             for d, o in zip(deriv_dims, deriv_order)])
 
         # Get the interpolant with the largest support region
         interp = self.interpolants.largest_support
@@ -138,7 +138,7 @@ class Substitution:
                 underscores = ['_' for d in range(ndims)]
                 indices_str = [str(i) for i in indices]
                 index = list(chain(*zip(underscores, indices_str)))
-                name = 'w_' + item.name + deriv_tag
+                name = 'w_' + item.name + '_d' + deriv_tag
                 # Swap minus signs for m in identifier
                 id = ''.join(index).replace('-', 'm')
                 name += id
