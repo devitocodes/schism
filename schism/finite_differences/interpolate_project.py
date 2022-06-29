@@ -158,7 +158,9 @@ class Interpolant:
         """
         submats = []  # Submatrices to be concatenated
         for func in self.group.funcs:
-            if func.staggered is None:  # No stagger
+            print(func.staggered, dv.NODE)
+            if func.staggered is None or func.staggered == dv.NODE:
+                # No stagger
                 stagger = tuple([0 for dim in func.space_dimensions])
             elif type(func.staggered) == dv.SpaceDimension:
                 stagger = tuple([0.5 if dim == func.staggered else 0.
