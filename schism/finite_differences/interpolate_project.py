@@ -111,12 +111,13 @@ class Interpolant:
     points : tuple
         Points where an interpolant is to be fitted
     """
-    def __init__(self, support, group, basis_map, geometry, points):
+    def __init__(self, support, group, basis_map, geometry, points, time=None):
         self._support = support
         self._group = group
         self._basis_map = basis_map
         self._geometry = geometry
         self._points = points
+        self._time = time
 
         self._get_interior_vector()
         self._get_interior_matrix()
@@ -139,7 +140,10 @@ class Interpolant:
         # Loop over functions
         for func in self.group.funcs:
             # Get the space and time dimensions of that function
-            t = func.time_dim
+            if self.time is None:
+                t = func.time_dim
+            else:
+                t = self.time.subs(func.time_dim.spacing, 1)
             dims = func.space_dimensions
             footprint = footprint_map[func]
             # Create entry for each point in the support region
@@ -158,7 +162,6 @@ class Interpolant:
         """
         submats = []  # Submatrices to be concatenated
         for func in self.group.funcs:
-            print(func.staggered, dv.NODE)
             if func.staggered is None or func.staggered == dv.NODE:
                 # No stagger
                 stagger = tuple([0 for dim in func.space_dimensions])
@@ -402,6 +405,11 @@ class Interpolant:
         return self._geometry
 
     @property
+    def time(self):
+        """The time index if supplied"""
+        return self._time
+
+    @property
     def interior_vector(self):
         """The vector of interior points corresponding to the support region"""
         return self._interior_vector
@@ -503,7 +511,7 @@ class Projection:
         npts = self.footprint[0].shape[0]
         func = self.deriv.expr
         dims = func.space_dimensions
-        time = func.time_dim
+        time = func.indices[0].subs(func.time_dim.spacing, 1)
         project_ind = [(time,)+tuple([dims[dim]+self.footprint[dim][i]
                                       for dim in range(ndims)])
                        for i in range(npts)]
@@ -514,7 +522,7 @@ class Projection:
         Get the matrix used to project the interpolant onto the interior
         stencil.
         """
-        basis = self.basis_map[self.deriv.expr]
+        basis = self.basis_map[self.deriv.expr.function]
         rowfunc = row_from_expr(basis.expr, self.group.funcs, self.basis_map)
 
         # Matrix before axis flipping

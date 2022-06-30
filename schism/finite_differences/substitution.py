@@ -59,12 +59,14 @@ class Substitution:
         Get the stencils by generating the required Interpolant and Projection
         objects
         """
+        time = self.deriv.expr.indices[0]
         ndims = len(self.geometry.grid.dimensions)
         radius_map = {func: func.space_order//2 for func in self.basis_map}
         support = SupportRegion(self.basis_map, radius_map)
         interpolant = Interpolant(support, self.group,
                                   self.basis_map, self.skin.geometry,
-                                  self.skin.points)
+                                  self.skin.points,
+                                  time=time)
         projection = Projection(self.deriv, self.group, self.basis_map)
 
         # Loop whilst there are points which don't yet have stencils
@@ -85,7 +87,8 @@ class Substitution:
                 interpolant = Interpolant(support, self.group,
                                           self.basis_map,
                                           self.skin.geometry,
-                                          masked_points)
+                                          masked_points,
+                                          time=time)
 
             elif self.strategy == 'reduce':
                 basis_map = {func: interpolant.basis_map[func].reduce_order(2)
@@ -93,7 +96,8 @@ class Substitution:
                 interpolant = Interpolant(support, self.group,
                                           basis_map,
                                           self.skin.geometry,
-                                          masked_points)
+                                          masked_points,
+                                          time=time)
                 projection = Projection(self.deriv, self.group, basis_map)
 
             else:
@@ -175,7 +179,7 @@ class Substitution:
         interior_stencil = get_sten_vector(self.deriv, footprint)
 
         expr = self.deriv.expr
-        t = expr.time_dim
+        t = expr.indices[0].subs(expr.time_dim.spacing, 1)
         dims = expr.space_dimensions
 
         for i in range(footprint.shape[-1]):

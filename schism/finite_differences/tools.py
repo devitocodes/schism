@@ -23,10 +23,9 @@ def get_sten_vector(deriv, points):
     inds = np.arange(-s_o//2, s_o//2 + 1)
 
     # Account for the function staggering
-    # FIXME: The dv.NODE thing here might not work
     if func.staggered == dv.NODE or func.staggered is None:
         stagger = {dim: 0 for dim in func.space_dimensions}
-    elif isinstance(func.staggered, dv.Function):
+    elif isinstance(func.staggered, dv.SpaceDimension):
         stagger = {dim: (dim.spacing/2 if dim == func.staggered else 0)
                    for dim in func.space_dimensions}
     else:

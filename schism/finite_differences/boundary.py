@@ -75,7 +75,7 @@ class Boundary:
         Get the BC group filtered to BCs corresponding with specified
         derivative.
         """
-        group = self.conditions.get_group(deriv.expr)
+        group = self.conditions.get_group(deriv.expr.function)
         if self.has_1D_basis:
             if len(deriv.dims) != 1:
                 errmsg = "Only 1D derivatives can be taken with 1D basis"
