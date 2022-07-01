@@ -3,8 +3,10 @@
 import pytest
 import devito as dv
 import sympy as sp
+import numpy as np
 
-from schism import BoundaryConditions, Boundary
+from test_geometry import read_sdf
+from schism import BoundaryConditions, Boundary, BoundaryGeometry
 from collections import Counter
 
 
@@ -92,3 +94,51 @@ class TestSubstitutions:
         else:
             assert group.conditions != filtered_group.conditions
             assert group.conditions == unfiltered_group.conditions
+
+    @pytest.mark.parametrize('s_o', [2, 4, 6])
+    def test_forward_timestep(self, s_o):
+        """
+        Check that stencils for the forward timestep are the same as those for
+        the current timestep.
+        """
+
+        # Load the flat 2D sdf
+        sdf = read_sdf('horizontal', 2)
+        # Create a geometry from it
+        bg = BoundaryGeometry(sdf)
+        grid = bg.grid
+
+        f = dv.TimeFunction(name='f', grid=grid, space_order=s_o)
+        # Compare second y deriv stencil at forward and current timestep
+        derivs = (f.dy2, f.forward.dy2)
+
+        # Pressure free-surface bcs
+        if s_o == 2:
+            bcs = BoundaryConditions([dv.Eq(f, 0),
+                                      dv.Eq(f.dx2+f.dy2, 0)])
+        elif s_o == 4:
+            bcs = BoundaryConditions([dv.Eq(f, 0),
+                                      dv.Eq(f.dx2+f.dy2, 0),
+                                      dv.Eq(f.dx4 + 2*f.dx2dy2 + f.dy4, 0)])
+        elif s_o == 6:
+            bcs = BoundaryConditions([dv.Eq(f, 0),
+                                      dv.Eq(f.dx2+f.dy2, 0),
+                                      dv.Eq(f.dx4 + 2*f.dx2dy2 + f.dy4, 0),
+                                      dv.Eq(f.dx6 + 3*f.dx4dy2
+                                            + 3*f.dx2dy4 + f.dy6, 0)])
+
+        boundary = Boundary(bcs, bg)
+        subs = boundary.substitutions(derivs)
+
+        t = f.time_dim
+
+        current = subs[f.dy2].subs(t, t+1)
+        forward = subs[f.forward.dy2]
+
+        assert str(current) == str(forward)
+
+        current_weights = dv.symbolics.retrieve_functions(current)
+        forward_weights = dv.symbolics.retrieve_functions(forward)
+
+        for crt, fwd in zip(current_weights, forward_weights):
+            assert np.all(np.isclose(crt.data, fwd.data))
