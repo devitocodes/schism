@@ -59,9 +59,8 @@ class BoundaryGeometry:
         only the innermost point should be used for extrapolation
     boundary_points : tuple
         Boundary point indices as a length N tuple of arrays
-    positions : tuple
-        Distances from each boundary point to the boundary as a length N tuple
-        of arrays.
+    dense_pos : tuple
+        Boundary position according to the sdf
     n_boundary_points : int
         Number of boundary points associated with the geometry
     """
@@ -101,9 +100,15 @@ class BoundaryGeometry:
     def _get_cutoff(self, cutoff):
         """Get the cutoff for each subgrid"""
         if cutoff is None:
-            self._cutoff = frozendict({self.sdf_ref.origin: 0.5})
+            self._cutoff = frozendict({origin: 0.5 for origin in self.sdf})
         else:
-            self._cutoff = frozendict(cutoff)
+            # Get sdf keys not in cutoff
+            leftover_keys = set(self.sdf.keys()) - set(cutoff.keys())
+            default_cutoff = {key: 0.5 for key in leftover_keys}
+            # Append them to cutoff
+            all_cutoffs = cutoff.update(default_cutoff)
+            # Turn this into a frozendict
+            self._cutoff = frozendict(all_cutoffs)
 
     def _get_boundary_normals(self):
         """Get normal direction and distance from each point to the boundary"""
@@ -161,7 +166,6 @@ class BoundaryGeometry:
         Get indices of boundary points and their distances to the boundary.
         """
         spacing = self.grid.spacing
-        dims = self.grid.dimensions
         max_dist = np.sqrt(sum([(inc/2)**2 for inc in spacing]))
 
         # Normalise positions by grid increment
@@ -173,29 +177,36 @@ class BoundaryGeometry:
                  for i in range(len(spacing))]
         mask = np.logical_and.reduce(masks)
 
+        # Needed to allow sdfs that are flat after some radius
         close = np.abs(self.sdf_ref.data) <= max_dist
 
         self._boundary_mask = np.logical_and(close, mask)
 
+        self._dense_pos = tuple(positions)
+
         self._boundary_points = np.where(self.boundary_mask)
 
-        # May want to be an array rather than a tuple of arrays in future
-        self._positions = tuple([positions[i][self.boundary_points]
-                                 for i in range(len(dims))])
-
-        dense_pos = [np.zeros(self.grid.shape) for dim in dims]
-        for dim in range(len(dims)):
-            dense_pos[dim][self.boundary_points] = self.positions[dim]
-
-        self._dense_pos = tuple(dense_pos)
-
-        self._n_boundary_points = self._boundary_points[0].shape[0]
+        self._n_boundary_points = np.count_nonzero(self.boundary_mask)
 
     def _get_interior_mask(self):
         """Get the mask for interior points"""
-        not_boundary = np.logical_not(self.boundary_mask)
-        interior = self.sdf_ref.data > 0
-        self._interior_mask = np.logical_and(interior, not_boundary)
+        interior_masks = {}
+        dims = self.grid.dimensions
+        for origin in self.sdf:
+            cutoff = self.cutoff[origin]
+            # Convert h_x/2 to 0.5 etc
+            stagger = [float(origin[i].subs(dims[i].spacing, 1))
+                       for i in range(len(dims))]
+            # Allows some slack to cope with floating point error
+            masks = [np.abs(self.dense_pos[i] - stagger[i]) > cutoff + _feps
+                     for i in range(len(dims))]
+            # Points outside the cutoff
+            not_excluded = np.logical_or.reduce(masks)
+            # On the interior according to the SDF
+            interior = self.sdf[origin] > 0
+            interior_masks[origin] = np.logical_and(interior, not_excluded)
+
+        self._interior_mask = frozendict(interior_masks)
 
     @property
     def sdf(self):
@@ -235,11 +246,6 @@ class BoundaryGeometry:
     def boundary_points(self):
         """Boundary points"""
         return self._boundary_points
-
-    @property
-    def positions(self):
-        """Relative offsets corresponding with each boundary point"""
-        return self._positions
 
     @property
     def dense_pos(self):
