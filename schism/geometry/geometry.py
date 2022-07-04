@@ -21,25 +21,31 @@ class BoundaryGeometry:
 
     Parameters
     ----------
-    sdf : devito Function
+    sdf : devito Function or list of Function
         A function whose data contains the signed distance function of the
         boundary discretized to the finite difference grid. Note that the
         space order of this function is used for the operators used to
-        calculate normal vectors to the boundary.
+        calculate normal vectors to the boundary. For staggered grids,
+        multiple signed distance functions should be supplied as a list. The
+        subgrids to which they pertain are determined from the staggering of
+        each Function. Note that at least one SDF must be associated with the
+        unstaggered grid.
 
     cutoff : dict, optional
         The cutoff determining how close points in each subgrid can be to the
         boundary before being excluded from the numerical scheme. Dict should
-        be formatted {origin: cutoff}
+        be formatted {origin: cutoff}. If none supplied then defaults to 0.5
+        (half a grid increment).
 
     Attributes
     ----------
-    sdf : Function or list of Function
-        The signed distance function used to generate the boundary geometry.
-        For staggered grids, multiple signed distance functions can be supplied
-        as a list. The subgrids to which they pertain are determined from the
-        staggering of each Function. Note that at least one SDF must be
-        associated with the unstaggered grid.
+    sdf : dict
+        Signed distance functions for each subgrid
+    sdf_ref : Function
+        The unstaggered SDF
+    cutoff : dict
+        The cutoff determining how close points for each subgrid can be to the
+        boundary.
     grid : Grid
         The grid to which the geometry is attached
     n : VectorFunction
@@ -61,10 +67,8 @@ class BoundaryGeometry:
     """
 
     def __init__(self, sdf, cutoff=None):
-        #  self._sdf = sdf
-        #  self._grid = self.sdf.grid
-
         self._process_sdfs(sdf)
+        self._get_cutoff(cutoff)
         self._get_boundary_normals()
         self._get_boundary_points()
         self._get_interior_mask()
@@ -93,6 +97,13 @@ class BoundaryGeometry:
             self._sdf = frozendict(sdf_dict)
             if not ref_sdf_set:
                 raise ValueError("No SDF supplied on unstaggered grid")
+
+    def _get_cutoff(self, cutoff):
+        """Get the cutoff for each subgrid"""
+        if cutoff is None:
+            self._cutoff = frozendict({self.sdf_ref.origin: 0.5})
+        else:
+            self._cutoff = frozendict(cutoff)
 
     def _get_boundary_normals(self):
         """Get normal direction and distance from each point to the boundary"""
@@ -195,6 +206,15 @@ class BoundaryGeometry:
     def sdf_ref(self):
         """The unstaggered signed distance function (the reference grid)"""
         return self._sdf_ref
+
+    @property
+    def cutoff(self):
+        """
+        The cutoff point at which points are considered too close to the
+        boundary. Points closer than this will be excluded from the numerical
+        scheme.
+        """
+        return self._cutoff
 
     @property
     def grid(self):
