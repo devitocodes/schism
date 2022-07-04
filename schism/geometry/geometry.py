@@ -192,18 +192,25 @@ class BoundaryGeometry:
         """Get the mask for interior points"""
         interior_masks = {}
         dims = self.grid.dimensions
+        spacing = self.grid.spacing
         for origin in self.sdf:
             cutoff = self.cutoff[origin]
+            max_dist = np.sqrt(sum([(spacing[dim]*cutoff)**2
+                                    for dim in range(len(dims))]))
             # Convert h_x/2 to 0.5 etc
             stagger = [float(origin[i].subs(dims[i].spacing, 1))
                        for i in range(len(dims))]
             # Allows some slack to cope with floating point error
             masks = [np.abs(self.dense_pos[i] - stagger[i]) > cutoff + _feps
                      for i in range(len(dims))]
+
+            # Needed to allow sdfs that are flat after some radius
+            far = np.abs(self.sdf[origin].data) > max_dist
+            masks.append(far)
             # Points outside the cutoff
             not_excluded = np.logical_or.reduce(masks)
             # On the interior according to the SDF
-            interior = self.sdf[origin] > 0
+            interior = self.sdf[origin].data > 0
             interior_masks[origin] = np.logical_and(interior, not_excluded)
 
         self._interior_mask = frozendict(interior_masks)
@@ -269,6 +276,7 @@ class BoundaryGeometry:
         only the innermost point should be used for extrapolation.
         """
         ndims = len(self.grid.dimensions)
+        interior_mask = self.interior_mask[self.sdf_ref.origin]
         masks = []
         for dim in range(ndims):
             shift_plus = np.full(self.grid.shape, False, dtype=bool)
@@ -279,8 +287,8 @@ class BoundaryGeometry:
             min_slices = tuple([slice(None) if d != dim else slice(0, -1)
                                 for d in range(ndims)])
 
-            shift_plus[min_slices] = self.interior_mask[plus_slices]
-            shift_minus[plus_slices] = self.interior_mask[min_slices]
+            shift_plus[min_slices] = interior_mask[plus_slices]
+            shift_minus[plus_slices] = interior_mask[min_slices]
 
             interior_adjacent = np.logical_or(shift_plus, shift_minus)
             masks.append(np.logical_and(interior_adjacent, self.boundary_mask))
