@@ -7,6 +7,7 @@ import devito as dv
 
 from schism.utils.environment import get_geometry_feps
 from functools import cached_property
+from devito.tools.data_structures import frozendict
 
 __all__ = ['BoundaryGeometry']
 
@@ -26,10 +27,19 @@ class BoundaryGeometry:
         space order of this function is used for the operators used to
         calculate normal vectors to the boundary.
 
+    cutoff : dict, optional
+        The cutoff determining how close points in each subgrid can be to the
+        boundary before being excluded from the numerical scheme. Dict should
+        be formatted {origin: cutoff}
+
     Attributes
     ----------
-    sdf : Function
-        The signed distance function used to generate the boundary geometry
+    sdf : Function or list of Function
+        The signed distance function used to generate the boundary geometry.
+        For staggered grids, multiple signed distance functions can be supplied
+        as a list. The subgrids to which they pertain are determined from the
+        staggering of each Function. Note that at least one SDF must be
+        associated with the unstaggered grid.
     grid : Grid
         The grid to which the geometry is attached
     n : VectorFunction
@@ -50,36 +60,62 @@ class BoundaryGeometry:
         Number of boundary points associated with the geometry
     """
 
-    def __init__(self, sdf):
-        self._sdf = sdf
-        self._grid = self.sdf.grid
+    def __init__(self, sdf, cutoff=None):
+        #  self._sdf = sdf
+        #  self._grid = self.sdf.grid
 
+        self._process_sdfs(sdf)
         self._get_boundary_normals()
         self._get_boundary_points()
         self._get_interior_mask()
 
+    def _process_sdfs(self, sdf):
+        """Process the SDF argument according to how it is supplied"""
+        if isinstance(sdf, dv.Function):
+            # Check that this is on the unstaggered grid
+            if np.any([stagger != 0 for stagger in sdf.origin]):
+                raise ValueError("Single SDF not on unstaggered grid")
+            self._sdf = frozendict({sdf.origin: sdf})
+            self._sdf_ref = sdf  # Attribute for the reference sdf
+            # This reference is used for normal calculation etc
+            self._grid = self.sdf_ref.grid
+        else:  # Iterable of sdfs supplied
+            sdf_dict = {}
+            self._grid = sdf[0].grid
+            ref_sdf_set = False
+            for func in sdf:
+                if func.grid != self.grid:
+                    raise ValueError("SDFs do not share a grid")
+                sdf_dict[func.origin] = func
+                if np.all([stagger == 0 for stagger in func.origin]):
+                    self._sdf_ref = func
+                    ref_sdf_set = True
+            self._sdf = frozendict(sdf_dict)
+            if not ref_sdf_set:
+                raise ValueError("No SDF supplied on unstaggered grid")
+
     def _get_boundary_normals(self):
         """Get normal direction and distance from each point to the boundary"""
         # Size of padding (required to avoid odd normals at grid edge)
-        pad = int(self.sdf.space_order//2)
+        pad = int(self.sdf_ref.space_order//2)
 
         padded_grid = self._padded_grid(pad)
         # Create a padded version of the signed distance function
         pad_sdf = dv.Function(name='pad_sdf', grid=padded_grid,
-                              space_order=self.sdf.space_order)
-        pad_sdf.data[:] = np.pad(self.sdf.data, (pad,), 'edge')
+                              space_order=self.sdf_ref.space_order)
+        pad_sdf.data[:] = np.pad(self.sdf_ref.data, (pad,), 'edge')
 
         # Normal vectors
         n = dv.VectorFunction(name='n', grid=padded_grid,
-                              space_order=self.sdf.space_order,
+                              space_order=self.sdf_ref.space_order,
                               staggered=(None, None, None))
 
         # Negative here as normals will be outward
         normal_eq = dv.Eq(n, -dv.grad(pad_sdf))
         dv.Operator(normal_eq, name='normals')()
 
-        self._normals = dv.VectorFunction(name='n', grid=self.sdf.grid,
-                                          space_order=self.sdf.space_order,
+        self._normals = dv.VectorFunction(name='n', grid=self.sdf_ref.grid,
+                                          space_order=self.sdf_ref.space_order,
                                           staggered=(None, None, None))
 
         # Trim the padding off
@@ -118,7 +154,7 @@ class BoundaryGeometry:
         max_dist = np.sqrt(sum([(inc/2)**2 for inc in spacing]))
 
         # Normalise positions by grid increment
-        positions = [self.n[i].data*self.sdf.data/spacing[i]
+        positions = [self.n[i].data*self.sdf_ref.data/spacing[i]
                      for i in range(len(spacing))]
 
         # Allows some slack to cope with floating point error
@@ -126,7 +162,7 @@ class BoundaryGeometry:
                  for i in range(len(spacing))]
         mask = np.logical_and.reduce(masks)
 
-        close = np.abs(self.sdf.data) <= max_dist
+        close = np.abs(self.sdf_ref.data) <= max_dist
 
         self._boundary_mask = np.logical_and(close, mask)
 
@@ -147,13 +183,18 @@ class BoundaryGeometry:
     def _get_interior_mask(self):
         """Get the mask for interior points"""
         not_boundary = np.logical_not(self.boundary_mask)
-        interior = self.sdf.data > 0
+        interior = self.sdf_ref.data > 0
         self._interior_mask = np.logical_and(interior, not_boundary)
 
     @property
     def sdf(self):
-        """The signed distance function"""
+        """The signed distance functions"""
         return self._sdf
+
+    @property
+    def sdf_ref(self):
+        """The unstaggered signed distance function (the reference grid)"""
+        return self._sdf_ref
 
     @property
     def grid(self):
