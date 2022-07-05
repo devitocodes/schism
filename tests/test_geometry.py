@@ -223,6 +223,66 @@ class TestBoundaryGeometry:
 
         assert np.all(bg.interior_mask[origin][slices] == check_mask[slices])
 
+    @pytest.mark.parametrize('surface', ['45_mirror', 'horizontal'])
+    @pytest.mark.parametrize('setup', [0, 1])
+    def test_interior_mask_staggered(self, surface, setup):
+        """Check that the interior masks are correct in the staggered case"""
+        sdf = read_sdf(surface, 2)
+        sdf_x = read_sdf(surface + '_x', 2)
+        sdf_y = read_sdf(surface + '_y', 2)
+        sdfs = (sdf, sdf_x, sdf_y)
+
+        # Trim edges off data, as normal calculation in corners is imperfect
+        slices = tuple([slice(2, -2) for dim in sdf.grid.dimensions])
+
+        x, y = sdf.grid.dimensions
+        h_x = x.spacing
+        h_y = y.spacing
+        zero = sp.core.numbers.Zero()
+
+        if setup == 0:
+            cutoff = None
+        elif setup == 1:
+            cutoff = cutoff = {(h_x/2, zero): 0, (zero, h_y/2): 0}
+
+        bg = BoundaryGeometry(sdfs, cutoff=cutoff)
+
+        xmsh, ymsh = np.meshgrid(np.arange(bg.grid.shape[0]),
+                                 np.arange(bg.grid.shape[1]), indexing='ij')
+
+        if surface == '45_mirror' and setup == 0:
+            check_mask = xmsh + ymsh < 100
+            for origin in bg.interior_mask:
+                check = bg.interior_mask[origin][slices] == check_mask[slices]
+                assert np.all(check)
+        elif surface == '45_mirror' and setup == 1:
+            check_mask = xmsh + ymsh < 100
+            check_mask_stagger = xmsh + ymsh < 101
+            for origin in bg.interior_mask:
+                if origin == (zero, zero):
+                    check = bg.interior_mask[origin][slices] \
+                        == check_mask[slices]
+                else:
+                    check = bg.interior_mask[origin][slices] \
+                        == check_mask_stagger[slices]
+                assert np.all(check)
+        elif surface == 'horizontal' and setup == 0:
+            check_mask = ymsh < 50
+            for origin in bg.interior_mask:
+                check = bg.interior_mask[origin][slices] == check_mask[slices]
+                assert np.all(check)
+        elif surface == 'horizontal' and setup == 1:
+            check_mask = ymsh < 50
+            check_mask_stagger = ymsh < 51
+            for origin in bg.interior_mask:
+                if origin == (zero, zero):
+                    check = bg.interior_mask[origin][slices] \
+                        == check_mask[slices]
+                else:
+                    check = bg.interior_mask[origin][slices] \
+                        == check_mask_stagger[slices]
+                assert np.all(check)
+
     def test_1d_boundary_masks(self):
         """Test the 1D versions of the boundary masks"""
         sdf = read_sdf('45_mirror', 2)
@@ -259,18 +319,18 @@ class TestBoundaryGeometry:
         if setup == 0:
             cutoff = None
             answer = {(zero, zero): 0.5}
-        if setup == 1:
+        elif setup == 1:
             cutoff = {(zero, zero): 0.5, (h_x/2, zero): 0, (zero, h_y/2): 0}
             answer = {(zero, zero): 0.5, (h_x/2, zero): 0, (zero, h_y/2): 0}
-        if setup == 2:
+        elif setup == 2:
             cutoff = None
             answer = {(zero, zero): 0.5, (h_x/2, zero): 0.5,
                       (zero, h_y/2): 0.5}
-        if setup == 3:
+        elif setup == 3:
             cutoff = {(h_x/2, zero): 0, (zero, h_y/2): 0}
             answer = {(zero, zero): 0.5, (h_x/2, zero): 0,
                       (zero, h_y/2): 0}
-        if setup == 4:
+        elif setup == 4:
             cutoff = {(zero, zero): 0, (h_x/2, zero): 0,
                       (zero, h_y/2): 0}
             answer = {(zero, zero): 0, (h_x/2, zero): 0,

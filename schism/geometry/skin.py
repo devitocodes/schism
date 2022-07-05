@@ -1,6 +1,7 @@
 """Geometry for the skin of modified operators surrounding the boundary"""
 
 import numpy as np
+import sympy as sp
 
 
 def stencil_footprint(deriv):
@@ -66,7 +67,15 @@ class ModifiedSkin:
 
         # Get the intersection with the interior
         all_points = tuple([mp[i] for i in range(mp.shape[0])])
-        interior_mask = self.geometry.interior_mask[all_points]
+        # Needs to use the interior mask of the target subgrid
+        # origin = self.deriv.expr.origin - self.deriv.x0
+        deriv_stagger = []
+        for dim in grid.dimensions:
+            try:
+                deriv_stagger.append(self.deriv.x0[dim])
+            except KeyError:
+                deriv_stagger.append(sp.core.numbers.Zero())
+        interior_mask = self.geometry.interior_mask[origin][all_points]
         mp = mp[:, interior_mask]
 
         self._mod_points = tuple([mp[i] for i in range(mp.shape[0])])
