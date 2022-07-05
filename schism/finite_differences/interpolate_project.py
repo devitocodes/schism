@@ -214,7 +214,10 @@ class Interpolant:
             pts_ib = tuple([self._stencil_points[func][dim][in_bounds]
                             for dim in range(ndims)])
 
-            interior_msk[in_bounds] = self.geometry.interior_mask[pts_ib]
+            # Wants to use the origin of the Function in question
+            origin = func.origin
+            interior_msk[in_bounds] \
+                = self.geometry.interior_mask[origin][pts_ib]
 
             submasks.append(interior_msk)
         # (0 axis is support region points)
