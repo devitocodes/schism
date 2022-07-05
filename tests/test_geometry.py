@@ -278,7 +278,4 @@ class TestBoundaryGeometry:
 
         bg = BoundaryGeometry(sdfs, cutoff=cutoff)
 
-        print(bg.cutoff)
-
         assert bg.cutoff == frozendict(answer)
-        assert False
