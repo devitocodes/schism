@@ -87,8 +87,12 @@ class BoundaryGeometry:
             self._grid = sdf[0].grid
             ref_sdf_set = False
             for func in sdf:
-                if func.grid != self.grid:
-                    raise ValueError("SDFs do not share a grid")
+                if func.grid.shape != self.grid.shape:
+                    raise ValueError("SDFs are of inconsistent size")
+                if func.grid.extent != self.grid.extent:
+                    raise ValueError("SDFs are of inconsistent extent")
+                if func.grid.dimensions != self.grid.dimensions:
+                    raise ValueError("SDFs have inconsistent dimensions")
                 sdf_dict[func.origin] = func
                 if np.all([stagger == 0 for stagger in func.origin]):
                     self._sdf_ref = func
@@ -106,7 +110,7 @@ class BoundaryGeometry:
             leftover_keys = set(self.sdf.keys()) - set(cutoff.keys())
             default_cutoff = {key: 0.5 for key in leftover_keys}
             # Append them to cutoff
-            all_cutoffs = cutoff.update(default_cutoff)
+            all_cutoffs = {**cutoff, **default_cutoff}
             # Turn this into a frozendict
             self._cutoff = frozendict(all_cutoffs)
 
@@ -201,10 +205,12 @@ class BoundaryGeometry:
             stagger = [float(origin[i].subs(dims[i].spacing, 1))
                        for i in range(len(dims))]
             # Allows some slack to cope with floating point error
+            # Errs on side of caution
             masks = [np.abs(self.dense_pos[i] - stagger[i]) > cutoff + _feps
                      for i in range(len(dims))]
 
             # Needed to allow sdfs that are flat after some radius
+            # TODO: could drop the abs here I think
             far = np.abs(self.sdf[origin].data) > max_dist
             masks.append(far)
             # Points outside the cutoff
@@ -275,8 +281,10 @@ class BoundaryGeometry:
         Tuple of boolean masks for boundary points. When using 1D stencils,
         only the innermost point should be used for extrapolation.
         """
+        # Narrows down points to boundary points that are interior-adjacent
         ndims = len(self.grid.dimensions)
-        interior_mask = self.interior_mask[self.sdf_ref.origin]
+        interior_mask = np.logical_and(np.logical_not(self.boundary_mask),
+                                       self.sdf_ref.data > 0)
         masks = []
         for dim in range(ndims):
             shift_plus = np.full(self.grid.shape, False, dtype=bool)

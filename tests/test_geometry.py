@@ -4,8 +4,10 @@ import pickle
 import os
 
 import numpy as np
+import sympy as sp
 
 from schism import BoundaryGeometry
+from devito.tools.data_structures import frozendict
 
 
 def read_sdf(surface, dims):
@@ -167,32 +169,6 @@ class TestBoundaryGeometry:
         # TODO: Wants to test some other surfaces too
         # TODO: Like sines, eggboxes, etc
 
-    @pytest.mark.parametrize('surface, dims', [('45', 2),
-                                               ('horizontal', 2)])
-    def test_positions(self, surface, dims):
-        """Check that calculated point positions are correct"""
-        # Create the SDF
-        sdf = read_sdf(surface, dims)
-        bg = BoundaryGeometry(sdf)
-
-        # For 45, they're going to be (0, 0), (0.5, -0.5), (-0.5, 0.5)
-        if surface == '45':
-            on = np.logical_and(np.isclose(bg.positions[0], 0),
-                                np.isclose(bg.positions[1], 0))
-            above = np.logical_and(np.isclose(bg.positions[0], 0.5),
-                                   np.isclose(bg.positions[1], -0.5))
-            below = np.logical_and(np.isclose(bg.positions[0], -0.5),
-                                   np.isclose(bg.positions[1], 0.5))
-            assert np.all(np.logical_or.reduce((on, above, below)))
-
-        # For horizontal, they're going to be (0, 0.5), (0.5, 0)
-        elif surface == 'horizontal':
-            above = np.logical_and(np.isclose(bg.positions[0], 0),
-                                   np.isclose(bg.positions[1], -0.5))
-            below = np.logical_and(np.isclose(bg.positions[0], 0),
-                                   np.isclose(bg.positions[1], 0.5))
-            assert np.all(np.logical_or(above, below))
-
     @pytest.mark.parametrize('surface', ['45', 'horizontal'])
     def test_dense_pos(self, surface):
         """
@@ -222,10 +198,11 @@ class TestBoundaryGeometry:
     @pytest.mark.parametrize('surface, dims', [('45_mirror', 2),
                                                ('horizontal', 2),
                                                ('horizontal', 3)])
-    def test_interior_mask(self, surface, dims):
-        """Check that the interior mask is correct"""
+    def test_interior_mask_unstaggered(self, surface, dims):
+        """Check that the interior mask is correct in unstaggered case"""
         sdf = read_sdf(surface, dims)
         bg = BoundaryGeometry(sdf)
+        origin = tuple([sp.core.numbers.Zero() for dim in range(dims)])
 
         # Trim edges off data, as normal calculation in corners is imperfect
         slices = tuple([slice(2, -2) for dim in sdf.grid.dimensions])
@@ -244,7 +221,7 @@ class TestBoundaryGeometry:
         elif surface == 'horizontal':
             check_mask = z < 50
 
-        assert np.all(bg.interior_mask[slices] == check_mask[slices])
+        assert np.all(bg.interior_mask[origin][slices] == check_mask[slices])
 
     def test_1d_boundary_masks(self):
         """Test the 1D versions of the boundary masks"""
@@ -257,3 +234,51 @@ class TestBoundaryGeometry:
         # In the 45 degree cases, both masks should be the same
         assert np.all(bg.b_mask_1D[0][slices] == bg.b_mask_1D[1][slices])
         assert np.count_nonzero(bg.b_mask_1D[0][slices]) == 97
+
+    @pytest.mark.parametrize('setup',
+                             [0, 1, 2, 3, 4])
+    def test_cutoff(self, setup):
+        """Test that the dictionary of cutoffs is correctly constructed"""
+        sdf = read_sdf('45_mirror', 2)
+        staggered_setups = [2, 3, 4]
+        if setup in staggered_setups:
+            sdf_x = read_sdf('45_mirror_x', 2)
+            sdf_y = read_sdf('45_mirror_y', 2)
+            sdfs = (sdf, sdf_x, sdf_y)
+        else:
+            sdfs = sdf
+        grid = sdf.grid
+        x, y = grid.dimensions
+
+        h_x = x.spacing
+        h_y = y.spacing
+        zero = sp.core.numbers.Zero()
+
+        # Need to have the dimensions, so done inside test rather than
+        # parameterization
+        if setup == 0:
+            cutoff = None
+            answer = {(zero, zero): 0.5}
+        if setup == 1:
+            cutoff = {(zero, zero): 0.5, (h_x/2, zero): 0, (zero, h_y/2): 0}
+            answer = {(zero, zero): 0.5, (h_x/2, zero): 0, (zero, h_y/2): 0}
+        if setup == 2:
+            cutoff = None
+            answer = {(zero, zero): 0.5, (h_x/2, zero): 0.5,
+                      (zero, h_y/2): 0.5}
+        if setup == 3:
+            cutoff = {(h_x/2, zero): 0, (zero, h_y/2): 0}
+            answer = {(zero, zero): 0.5, (h_x/2, zero): 0,
+                      (zero, h_y/2): 0}
+        if setup == 4:
+            cutoff = {(zero, zero): 0, (h_x/2, zero): 0,
+                      (zero, h_y/2): 0}
+            answer = {(zero, zero): 0, (h_x/2, zero): 0,
+                      (zero, h_y/2): 0}
+
+        bg = BoundaryGeometry(sdfs, cutoff=cutoff)
+
+        print(bg.cutoff)
+
+        assert bg.cutoff == frozendict(answer)
+        assert False
