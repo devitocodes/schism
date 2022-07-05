@@ -67,14 +67,17 @@ class ModifiedSkin:
 
         # Get the intersection with the interior
         all_points = tuple([mp[i] for i in range(mp.shape[0])])
+
         # Needs to use the interior mask of the target subgrid
-        # origin = self.deriv.expr.origin - self.deriv.x0
         deriv_stagger = []
         for dim in grid.dimensions:
             try:
                 deriv_stagger.append(self.deriv.x0[dim])
             except KeyError:
                 deriv_stagger.append(sp.core.numbers.Zero())
+        origin = tuple([self.deriv.expr.origin[d] - deriv_stagger[d]
+                        for d in range(len(grid.dimensions))])
+
         interior_mask = self.geometry.interior_mask[origin][all_points]
         mp = mp[:, interior_mask]
 
