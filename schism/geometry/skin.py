@@ -70,13 +70,13 @@ class ModifiedSkin:
 
         # Needs to use the interior mask of the target subgrid
         deriv_stagger = []
-        for dim in grid.dimensions:
+        for d in range(len(grid.dimensions)):
             try:
-                deriv_stagger.append(self.deriv.x0[dim])
+                deriv_stagger.append(self.deriv.x0[grid.dimensions[d]]
+                                     - grid.dimensions[d])
             except KeyError:
                 deriv_stagger.append(sp.core.numbers.Zero())
-        origin = tuple([self.deriv.expr.origin[d] - deriv_stagger[d]
-                        for d in range(len(grid.dimensions))])
+        origin = tuple(deriv_stagger)
 
         interior_mask = self.geometry.interior_mask[origin][all_points]
         mp = mp[:, interior_mask]
