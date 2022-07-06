@@ -7,6 +7,7 @@ import pytest
 import os
 import devito as dv
 import numpy as np
+import sympy as sp
 
 from schism.conditions.boundary_conditions import SingleCondition
 from schism.basic.basis import Basis
@@ -43,12 +44,21 @@ class DummySkin:
 def setup_geom(setup, grid):
     """Set up dummy geometry and skin objects"""
     assert grid.shape == (3, 3)
-    interior_mask = np.zeros(grid.shape, dtype=bool)
+
+    origin = (sp.core.numbers.Zero(), sp.core.numbers.Zero())
+    origin_x = (grid.dimensions[0].spacing/2, sp.core.numbers.Zero())
+    origin_y = (sp.core.numbers.Zero(), grid.dimensions[1].spacing/2)
+    origins = (origin, origin_x, origin_y)
+
+    interior_mask = {orig: np.zeros(grid.shape, dtype=bool)
+                     for orig in origins}
     boundary_mask = np.zeros(grid.shape, dtype=bool)
     dense_pos = [np.zeros(grid.shape) for dim in grid.dimensions]
     if setup == 0:  # Flat surface
         skin_points = (np.array([0, 1, 2]), np.array([1, 1, 1]))
-        interior_mask[:, :2] = True
+        interior_mask[origin][:, :2] = True
+        interior_mask[origin_x][:, :2] = True
+        interior_mask[origin_y][:, :2] = True
         boundary_mask[:, 2] = True
         dense_pos[1][:, 2] = 0.4
         b_mask_1D = (np.zeros(grid.shape, dtype=bool), boundary_mask.copy())
@@ -58,7 +68,9 @@ def setup_geom(setup, grid):
                        np.array([2, 1, 1, 0, 0]))
         interior = (np.array([0, 0, 1, 0, 1, 2]),
                     np.array([2, 1, 1, 0, 0, 0]))
-        interior_mask[interior] = True
+        interior_mask[origin][interior] = True
+        interior_mask[origin_x][interior] = True
+        interior_mask[origin_y][interior] = True
         boundary = (np.array([1, 2, 2]), np.array([2, 2, 1]))
         boundary_mask[boundary] = True
         positions = np.array([np.sqrt(2)/2, -np.sqrt(2)/2, np.sqrt(2)/2])
@@ -133,6 +145,7 @@ class TestInterpolant:
         shape = tuple([3 for dim in range(ndims)])
         extent = tuple([10. for dim in range(ndims)])
         grid = dv.Grid(shape=shape, extent=extent)
+        origin = tuple([sp.core.numbers.Zero() for dim in range(ndims)])
         # Need to create one or two functions
         funcs = [dv.TimeFunction(name='f'+str(i), grid=grid, space_order=s_o)
                  for i in range(nfuncs)]
@@ -151,8 +164,9 @@ class TestInterpolant:
         support = SupportRegion(basis_map, radius_map)
 
         geometry = DummyGeometry(grid=grid,
-                                 interior_mask=np.full(grid.shape, True,
-                                                       dtype=bool),
+                                 interior_mask={origin:
+                                                np.full(grid.shape, True,
+                                                        dtype=bool)},
                                  boundary_mask=np.full(grid.shape, False,
                                                        dtype=bool),
                                  dense_pos=tuple([np.full(grid.shape, 0)
@@ -198,6 +212,7 @@ class TestInterpolant:
         shape = tuple([11 for dim in range(ndims)])
         extent = tuple([10. for dim in range(ndims)])
         grid = dv.Grid(shape=shape, extent=extent)
+        origin = tuple([sp.core.numbers.Zero() for dim in range(ndims)])
         funcs = [dv.TimeFunction(name='f'+str(i), grid=grid, space_order=2)
                  for i in range(nfuncs)]
         conditions = tuple([SingleCondition(dv.Eq(func, 0)) for func in funcs])
@@ -214,8 +229,9 @@ class TestInterpolant:
         # Create a SupportRegion
         support = SupportRegion(basis_map, radius_map)
         geometry = DummyGeometry(grid=grid,
-                                 interior_mask=np.full(grid.shape, True,
-                                                       dtype=bool),
+                                 interior_mask={origin:
+                                                np.full(grid.shape, True,
+                                                        dtype=bool)},
                                  boundary_mask=np.full(grid.shape, False,
                                                        dtype=bool),
                                  dense_pos=tuple([np.full(grid.shape, 0)
@@ -243,6 +259,15 @@ class TestInterpolant:
         """Check that the master interior matrix is correctly generated"""
         # Create a grid and the specified function type
         grid = dv.Grid(shape=(11, 11), extent=(10., 10.))
+        origin = (sp.core.numbers.Zero(), sp.core.numbers.Zero())
+        interior_mask = {origin: np.full(grid.shape, True, dtype=bool)}
+        if func_type == 'vector':
+            origin_x = (grid.dimensions[0].spacing/2, sp.core.numbers.Zero())
+            origin_y = (sp.core.numbers.Zero(), grid.dimensions[1].spacing/2)
+            extra_mask = {origin_x: np.full(grid.shape, True, dtype=bool),
+                          origin_y: np.full(grid.shape, True, dtype=bool)}
+            interior_mask.update(extra_mask)
+
         if func_type == 'scalar':
             f = dv.TimeFunction(name='f', grid=grid, space_order=s_o)
             conditions = (SingleCondition(dv.Eq(f, 0)),)
@@ -268,8 +293,7 @@ class TestInterpolant:
         support = SupportRegion(basis_map, radius_map)
 
         geometry = DummyGeometry(grid=grid,
-                                 interior_mask=np.full(grid.shape, True,
-                                                       dtype=bool),
+                                 interior_mask=interior_mask,
                                  boundary_mask=np.full(grid.shape, False,
                                                        dtype=bool),
                                  dense_pos=tuple([np.full(grid.shape, 0)
@@ -373,8 +397,12 @@ class TestInterpolant:
         assert np.all(np.isclose(id, np.eye(interpolant.matrix.shape[-1])))
 
     @pytest.mark.parametrize('setup', [0, 1])
-    @pytest.mark.parametrize('func_type', ['scalar', 'vector'])
-    @pytest.mark.parametrize('deriv_type', ['dx', 'dy2', 'dxf'])
+    @pytest.mark.parametrize('func_type, deriv_type',
+                             [('scalar', 'dx'),
+                              ('scalar', 'dy2'),
+                              ('scalar', 'dxf'),
+                              ('vector', 'dx'),
+                              ('vector', 'dxb')])
     def test_projection(self, setup, func_type, deriv_type):
         """
         Check that the interpolant is correctly projected onto the interior
@@ -392,6 +420,8 @@ class TestInterpolant:
             deriv = group.funcs[0].dy2
         elif deriv_type == 'dxf':
             deriv = group.funcs[0].dx(x0=x+x.spacing/2)
+        elif deriv_type == 'dxb':
+            deriv = group.funcs[0].dx(x0=x)
 
         projection = Projection(deriv, group, basis_map)
 

@@ -2,6 +2,7 @@
 
 import numpy as np
 import devito as dv
+import sympy as sp
 
 from schism.finite_differences.interpolate_project import MultiInterpolant, \
     MultiProjection, Interpolant, Projection
@@ -182,12 +183,22 @@ class Substitution:
         t = expr.indices[0].subs(expr.time_dim.spacing, 1)
         dims = expr.space_dimensions
 
+        # Needs to use the interior mask of the target subgrid
+        deriv_stagger = []
+        for d in range(len(expr.space_dimensions)):
+            try:
+                deriv_stagger.append(self.deriv.x0[expr.space_dimensions[d]]
+                                     - expr.space_dimensions[d])
+            except KeyError:
+                deriv_stagger.append(sp.core.numbers.Zero())
+        origin = tuple(deriv_stagger)
+
         for i in range(footprint.shape[-1]):
             ind = footprint[:, i]
             func_index = (t,) + tuple([dims[i]+ind[i]
                                        for i in range(len(dims))])
             wdata = self.data_map[expr[func_index]]
-            wdata[self.geometry.interior_mask] = interior_stencil[i]
+            wdata[self.geometry.interior_mask[origin]] = interior_stencil[i]
 
     def _fill_modified_weights(self):
         """Fill the weight functions with the modified weights"""

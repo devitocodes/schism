@@ -215,7 +215,7 @@ class Interpolant:
                             for dim in range(ndims)])
 
             # Wants to use the origin of the Function in question
-            origin = func.origin
+            origin = func.origin[-ndims:]
             interior_msk[in_bounds] \
                 = self.geometry.interior_mask[origin][pts_ib]
 

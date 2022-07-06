@@ -3,6 +3,7 @@
 import pytest
 import devito as dv
 import numpy as np
+import sympy as sp
 import os
 
 from test_interpolation import setup_geom, setup_f, DummyGroup, \
@@ -94,11 +95,12 @@ class TestSubstitution:
         """
         grid = dv.Grid(shape=(5, 4), extent=(6., 5.))
         x, y = grid.dimensions
+        origin = (sp.core.numbers.Zero(), sp.core.numbers.Zero())
 
         int_points = (np.array([2, 1, 2, 3, 0, 1, 2, 3, 4]),
                       np.array([2, 1, 1, 1, 0, 0, 0, 0, 0]))
-        interior_mask = np.zeros(grid.shape, dtype=bool)
-        interior_mask[int_points] = True
+        interior_mask = {origin: np.zeros(grid.shape, dtype=bool)}
+        interior_mask[origin][int_points] = True
 
         bou_points = (np.array([1, 2, 3, 0, 1, 3, 4, 0, 4]),
                       np.array([3, 3, 3, 2, 2, 2, 2, 1, 1]))
