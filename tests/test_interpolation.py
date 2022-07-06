@@ -63,7 +63,7 @@ def setup_geom(setup, grid):
         dense_pos[1][:, 2] = 0.4
         b_mask_1D = (np.zeros(grid.shape, dtype=bool), boundary_mask.copy())
 
-    else:  # Tilted surface
+    elif setup == 1:  # Tilted surface
         skin_points = (np.array([0, 0, 1, 1, 2]),
                        np.array([2, 1, 1, 0, 0]))
         interior = (np.array([0, 0, 1, 0, 1, 2]),
