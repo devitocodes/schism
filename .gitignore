@@ -11,3 +11,6 @@ schism/conditions/__pycache__
 schism/basic/__pycache__
 schism/finite_differences/__pycache__
 tests/__pycache__
+
+# Ipynb checkpoints
+examples/.ipynb_checkpoints
