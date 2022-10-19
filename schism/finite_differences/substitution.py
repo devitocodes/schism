@@ -60,14 +60,12 @@ class Substitution:
         Get the stencils by generating the required Interpolant and Projection
         objects
         """
-        time = self.deriv.expr.indices[0]
         ndims = len(self.geometry.grid.dimensions)
         radius_map = {func: func.space_order//2 for func in self.basis_map}
         support = SupportRegion(self.basis_map, radius_map)
         interpolant = Interpolant(support, self.group,
                                   self.basis_map, self.skin.geometry,
-                                  self.skin.points,
-                                  time=time)
+                                  self.skin.points)
         projection = Projection(self.deriv, self.group, self.basis_map)
 
         # Loop whilst there are points which don't yet have stencils
@@ -88,8 +86,7 @@ class Substitution:
                 interpolant = Interpolant(support, self.group,
                                           self.basis_map,
                                           self.skin.geometry,
-                                          masked_points,
-                                          time=time)
+                                          masked_points)
 
             elif self.strategy == 'reduce':
                 basis_map = {func: interpolant.basis_map[func].reduce_order(2)
@@ -97,8 +94,7 @@ class Substitution:
                 interpolant = Interpolant(support, self.group,
                                           basis_map,
                                           self.skin.geometry,
-                                          masked_points,
-                                          time=time)
+                                          masked_points)
                 projection = Projection(self.deriv, self.group, basis_map)
 
             else:
@@ -136,10 +132,14 @@ class Substitution:
         weight_map = {}
         data_map = {item: np.zeros(grid.shape) for item in rhs[rhs_nonzero]}
         for item in rhs[rhs_nonzero]:
-            if isinstance(item, dv.types.Indexed):
-                indices = [int((item.indices[1+d]
-                               - dims[d]).as_coeff_Mul()[0])
-                           for d in range(ndims)]
+            # Check that the RHS is a Devito Function
+            if isinstance(item, dv.Function):
+                # Turn the offset in space into a tag
+                # First reduce f(t, x+h_x, y-h_y) to [1, -1]
+                indices = [(ind-f_ind).as_type_Mul()[0] for dim, ind, f_ind
+                           in zip(item.dimensions, item.indices,
+                                  item.function.indices)
+                           if dim.is_Space]
                 underscores = ['_' for d in range(ndims)]
                 indices_str = [str(i) for i in indices]
                 index = list(chain(*zip(underscores, indices_str)))
@@ -180,7 +180,6 @@ class Substitution:
         interior_stencil = get_sten_vector(self.deriv, footprint)
 
         expr = self.deriv.expr
-        t = expr.indices[0].subs(expr.time_dim.spacing, 1)
         dims = expr.space_dimensions
 
         # Needs to use the interior mask of the target subgrid
@@ -193,12 +192,12 @@ class Substitution:
                 deriv_stagger.append(sp.core.numbers.Zero())
         origin = tuple(deriv_stagger)
 
-        for i in range(footprint.shape[-1]):
-            ind = footprint[:, i]
-            func_index = (t,) + tuple([dims[i]+ind[i]
-                                       for i in range(len(dims))])
-            wdata = self.data_map[expr[func_index]]
-            wdata[self.geometry.interior_mask[origin]] = interior_stencil[i]
+        # P for stencil point, d for dimension
+        for p in range(len(footprint[0])):
+            ind_subs = {dims[d]: dims[d] + footprint[d][p]*dims[d].spacing
+                        for d in range(len(dims))}
+            wdata = self.data_map[expr.subs(ind_subs)]
+            wdata[self.geometry.interior_mask[origin]] = interior_stencil[p]
 
     def _fill_modified_weights(self):
         """Fill the weight functions with the modified weights"""
@@ -241,11 +240,12 @@ class Substitution:
         denom = reduce(lambda a, b: a*b, denom_args)
         # Get the numerator
         # Multiply each weight by its corresponding expression
-        num_args = [w*f for w, f in zip(self.weight_map.keys(),
-                                        self.weight_map.values())]
-        num = sum(num_args)
-        # Combine them
-        expr = num/denom
+        # Divide by denom here to better resemble devito-generated stencils
+        args = [w*f/denom for w, f in zip(self.weight_map.keys(),
+                                          self.weight_map.values())]
+        # Creation of EvalDerivative here enable optimization down the line
+        # The derivative is of self.deriv.expr
+        expr = dv.EvalDerivative(*args, base=self.deriv.expr)
         # Set self.expr
         self._expr = expr
 
