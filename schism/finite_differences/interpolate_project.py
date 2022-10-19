@@ -139,19 +139,20 @@ class Interpolant:
         vec = []
         # Loop over functions
         for func in self.group.funcs:
-            # Get the space and time dimensions of that function
-            if self.time is None:
-                t = func.time_dim
-            else:
-                t = self.time.subs(func.time_dim.spacing, 1)
             dims = func.space_dimensions
+            if self.time is None:
+                t_subs = {}
+            else:
+                t_subs = {func.time_dim: self.time}
             footprint = footprint_map[func]
-            # Create entry for each point in the support region
             for point in range(len(footprint[0])):
-                space_ind = [dims[dim]+footprint[dim][point]
-                             for dim in range(len(dims))]
-                ind = (t,) + tuple(space_ind)
-                vec.append(func[ind])
+                # Staggering automatically accounted for here
+                # as it will substitute the dimension in the index, but
+                # not the stagger.
+                ind_subs = {dims[d]: dims[d]
+                            + footprint[d][point]*dims[d].spacing
+                            for d in range(len(dims))}
+                vec.append(func.subs({**ind_subs, **t_subs}))
 
         self._interior_vector = np.array(vec)
 
@@ -514,11 +515,11 @@ class Projection:
         npts = self.footprint[0].shape[0]
         func = self.deriv.expr
         dims = func.space_dimensions
-        time = func.indices[0].subs(func.time_dim.spacing, 1)
-        project_ind = [(time,)+tuple([dims[dim]+self.footprint[dim][i]
-                                      for dim in range(ndims)])
-                       for i in range(npts)]
-        self._vector = np.array([func[project_ind[i]] for i in range(npts)])
+
+        # Substitute in the offsets symbolically
+        ind_subs = [{dims[d]: dims[d] + footprint[d][i]*dims[d].spacing
+                     for d in range(ndims)} for i in range(npts)]
+        self._vector = np.array([func.subs(ind_subs[i]) for i in range(npts)])
 
     def _get_projection_matrix(self):
         """

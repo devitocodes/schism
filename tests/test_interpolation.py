@@ -189,15 +189,16 @@ class TestInterpolant:
             check_len = nfuncs*(s_o+1)
         assert len(interpolant.interior_vector) == check_len
 
-    answers = ['[f0[t, x - 1] f0[t, x] f0[t, x + 1]]',
-               '[f0[t, x - 1] f0[t, x] f0[t, x + 1] f1[t, x - 1] '
-               + 'f1[t, x] f1[t, x + 1]]',
-               '[f0[t, x - 1, y - 1] f0[t, x - 1, y] f0[t, x - 1, y + 1] '
-               + 'f0[t, x, y - 1]\n f0[t, x, y] f0[t, x, y + 1] '
-               + 'f0[t, x + 1, y - 1] f0[t, x + 1, y]\n f0[t, x + 1, y + 1]]',
-               '[f0[t, x - 1, y] f0[t, x, y] f0[t, x + 1, y]]',
-               '[f0[t, x, y - 1] f0[t, x, y] f0[t, x, y + 1]]',
-               '[f0[t, x - 1, y, z] f0[t, x, y, z] f0[t, x + 1, y, z]]']
+    answers = ['[f0(t, x - h_x) f0(t, x) f0(t, x + h_x)]',
+               '[f0(t, x - h_x) f0(t, x) f0(t, x + h_x) f1(t, x - h_x) '
+               + 'f1(t, x)\n f1(t, x + h_x)]',
+               '[f0(t, x - h_x, y - h_y) f0(t, x - h_x, y) '
+               + 'f0(t, x - h_x, y + h_y)\n f0(t, x, y - h_y) f0(t, x, y) '
+               + 'f0(t, x, y + h_y) f0(t, x + h_x, y - h_y)\n '
+               + 'f0(t, x + h_x, y) f0(t, x + h_x, y + h_y)]',
+               '[f0(t, x - h_x, y) f0(t, x, y) f0(t, x + h_x, y)]',
+               '[f0(t, x, y - h_y) f0(t, x, y) f0(t, x, y + h_y)]',
+               '[f0(t, x - h_x, y, z) f0(t, x, y, z) f0(t, x + h_x, y, z)]']
 
     @pytest.mark.parametrize('ndims, basis_dim, nfuncs, ans',
                              [(1, None, 1, answers[0]),
@@ -245,8 +246,6 @@ class TestInterpolant:
         # Create the Interpolant
         interpolant = Interpolant(support, group, basis_map,
                                   skin.geometry, skin.points)
-
-        print(interpolant.interior_vector)
 
         # Check the interior vector matches the answer
         assert str(interpolant.interior_vector) == ans

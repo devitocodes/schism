@@ -132,7 +132,7 @@ class TestSubstitutions:
 
         t = f.time_dim
 
-        current = subs[f.dy2].subs(t, t+1)
+        current = subs[f.dy2].subs(t, t+t.spacing)
         forward = subs[f.forward.dy2]
 
         assert str(current) == str(forward)
