@@ -232,26 +232,27 @@ class TestSubstitution:
     def test_returned_expr(self):
         """Check that the correct expression is returned"""
         subs = weights_test_setup()
-        ans = '(w_f_dy2_0_0(x, y)*f[t, x, y] ' \
-            + '+ w_f_dy2_0_1(x, y)*f[t, x, y + 1] ' \
-            + '+ w_f_dy2_0_2(x, y)*f[t, x, y + 2] ' \
-            + '+ w_f_dy2_0_m1(x, y)*f[t, x, y - 1] ' \
-            + '+ w_f_dy2_0_m2(x, y)*f[t, x, y - 2] ' \
-            + '+ w_f_dy2_1_0(x, y)*f[t, x + 1, y] ' \
-            + '+ w_f_dy2_1_1(x, y)*f[t, x + 1, y + 1] ' \
-            + '+ w_f_dy2_1_2(x, y)*f[t, x + 1, y + 2] ' \
-            + '+ w_f_dy2_1_m1(x, y)*f[t, x + 1, y - 1] ' \
-            + '+ w_f_dy2_1_m2(x, y)*f[t, x + 1, y - 2] ' \
-            + '+ w_f_dy2_2_0(x, y)*f[t, x + 2, y] ' \
-            + '+ w_f_dy2_2_1(x, y)*f[t, x + 2, y + 1] ' \
-            + '+ w_f_dy2_2_m1(x, y)*f[t, x + 2, y - 1] ' \
-            + '+ w_f_dy2_m1_0(x, y)*f[t, x - 1, y] ' \
-            + '+ w_f_dy2_m1_1(x, y)*f[t, x - 1, y + 1] ' \
-            + '+ w_f_dy2_m1_2(x, y)*f[t, x - 1, y + 2] ' \
-            + '+ w_f_dy2_m1_m1(x, y)*f[t, x - 1, y - 1] ' \
-            + '+ w_f_dy2_m1_m2(x, y)*f[t, x - 1, y - 2] ' \
-            + '+ w_f_dy2_m2_0(x, y)*f[t, x - 2, y] ' \
-            + '+ w_f_dy2_m2_1(x, y)*f[t, x - 2, y + 1] ' \
-            + '+ w_f_dy2_m2_m1(x, y)*f[t, x - 2, y - 1])/h_y**2'
+        ans = 'f(t, x, y)*w_f_dy2_0_0(x, y)/h_y**2 ' \
+            + '+ f(t, x, y - 2*h_y)*w_f_dy2_0_m2(x, y)/h_y**2 ' \
+            + '+ f(t, x, y - h_y)*w_f_dy2_0_m1(x, y)/h_y**2 ' \
+            + '+ f(t, x, y + h_y)*w_f_dy2_0_1(x, y)/h_y**2 ' \
+            + '+ f(t, x, y + 2*h_y)*w_f_dy2_0_2(x, y)/h_y**2 ' \
+            + '+ f(t, x - 2*h_x, y)*w_f_dy2_m2_0(x, y)/h_y**2 ' \
+            + '+ f(t, x - 2*h_x, y - h_y)*w_f_dy2_m2_m1(x, y)/h_y**2 ' \
+            + '+ f(t, x - 2*h_x, y + h_y)*w_f_dy2_m2_1(x, y)/h_y**2 ' \
+            + '+ f(t, x - h_x, y)*w_f_dy2_m1_0(x, y)/h_y**2 ' \
+            + '+ f(t, x - h_x, y - 2*h_y)*w_f_dy2_m1_m2(x, y)/h_y**2 ' \
+            + '+ f(t, x - h_x, y - h_y)*w_f_dy2_m1_m1(x, y)/h_y**2 ' \
+            + '+ f(t, x - h_x, y + h_y)*w_f_dy2_m1_1(x, y)/h_y**2 ' \
+            + '+ f(t, x - h_x, y + 2*h_y)*w_f_dy2_m1_2(x, y)/h_y**2 ' \
+            + '+ f(t, x + h_x, y)*w_f_dy2_1_0(x, y)/h_y**2 ' \
+            + '+ f(t, x + h_x, y - 2*h_y)*w_f_dy2_1_m2(x, y)/h_y**2 ' \
+            + '+ f(t, x + h_x, y - h_y)*w_f_dy2_1_m1(x, y)/h_y**2 ' \
+            + '+ f(t, x + h_x, y + h_y)*w_f_dy2_1_1(x, y)/h_y**2 ' \
+            + '+ f(t, x + h_x, y + 2*h_y)*w_f_dy2_1_2(x, y)/h_y**2 ' \
+            + '+ f(t, x + 2*h_x, y)*w_f_dy2_2_0(x, y)/h_y**2 ' \
+            + '+ f(t, x + 2*h_x, y - h_y)*w_f_dy2_2_m1(x, y)/h_y**2 ' \
+            + '+ f(t, x + 2*h_x, y + h_y)*w_f_dy2_2_1(x, y)/h_y**2'
 
+        print(subs.expr)
         assert str(subs.expr) == ans
