@@ -254,5 +254,4 @@ class TestSubstitution:
             + '+ f(t, x + 2*h_x, y - h_y)*w_f_dy2_2_m1(x, y)/h_y**2 ' \
             + '+ f(t, x + 2*h_x, y + h_y)*w_f_dy2_2_1(x, y)/h_y**2'
 
-        print(subs.expr)
         assert str(subs.expr) == ans
