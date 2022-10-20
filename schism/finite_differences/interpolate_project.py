@@ -339,6 +339,39 @@ class Interpolant:
         have rank sufficient to yield a unique pseudoinverse.
         """
         of_rank = self._matrix[self._rank_mask]
+        """
+        # FIXME: this is a horrible hack
+        # FIXME: really needs tidying up and making better
+        grid = self.geometry.grid
+        dims = grid.dimensions
+        dim_sub = {dim: 0 for dim in dims}
+
+        dist_squared = []
+        for f in self.interior_vector:
+            dist_squared.append(sum([float(ind.subs(dim_sub))**2
+                                for ind in f.indices[1:]]))
+        dist = np.sqrt(dist_squared)
+        min_weight = 0.1
+        weights = 1 - (1-min_weight)*(dist/np.amax(dist))
+        print(weights)
+
+        # n_interior = self.interior_vector.shape[0]
+        n_boundary = sum(v.shape[0] for v in self.boundary_vectors)
+
+        # w_vec = np.concatenate((np.full(n_interior, 1),
+        #                         np.full(n_boundary, 1)))
+        w_vec = np.concatenate((weights,
+                                np.full(n_boundary, 10)))
+        w = np.diag(w_vec)
+
+        of_rank_T = of_rank.transpose((0, 2, 1))
+
+        # Left half of the equation (inside the inverse)
+        left = np.matmul(of_rank_T, np.matmul(w, of_rank))
+        inv = np.linalg.inv(left)
+        right = np.matmul(of_rank_T, w)
+        self._pinv = np.matmul(inv, right)
+        """
         self._pinv = np.linalg.pinv(of_rank)
 
     def project(self, projection):
