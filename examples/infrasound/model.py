@@ -13,6 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from itertools import product
+from examples.seismic import TimeAxis, RickerSource, Receiver
 
 
 class BoundaryDomain(dv.SubDomain):
@@ -46,6 +47,22 @@ class InfrasoundModel:
         Shape of the grid (including damping region)
     extent : tuple
         Extent of the grid (including damping region)
+    space_order : int
+        Order of the spatial discretization
+    c : float
+        Acoustic wavespeed in air
+    src_coords : ndarray
+        Coordinates for source location
+    src_f : float
+        Source peak frequency. Default is 1Hz.
+    rec_coords : ndarray
+        Coordinates for receiver location
+    t0 : float
+        Starting time of the model
+    tn : float
+        End time of the model
+    dt : float
+        Timestep
     """
     def __init__(self, *args, **kwargs):
         self._ndims = kwargs.get('dims', 2)
@@ -63,6 +80,14 @@ class InfrasoundModel:
         self._setup_fields()
 
         self._setup_damping()
+
+        self._src_coords = kwargs.get('src_coords')
+        self._rec_coords = kwargs.get('rec_coords')
+        self._t0 = kwargs.get('t0')
+        self._tn = kwargs.get('tn')
+        self._dt = kwargs.get('dt')
+        self._src_f = kwargs.get('src_f', 1.)
+        self._setup_sparse()
 
     def _generate_dims(self):
         """Set up dimensions according to number specified"""
@@ -123,6 +148,26 @@ class InfrasoundModel:
         # plt.colorbar()
         # plt.show()
 
+    def _setup_sparse(self):
+        """Initialise the sources and receivers"""
+        time_range = TimeAxis(start=self.t0, stop=self.tn, step=self.dt)
+        if self._src_coords is not None:
+            self._src = RickerSource(name='src', grid=self.grid,
+                                     f0=self._src_f,
+                                     npoint=self._src_coords.shape[0],
+                                     time_range=time_range)
+            self._src.coordinates.data[:] = self._src_coords
+        else:
+            self._src = None
+
+        if self._rec_coords is not None:
+            self._rec = Receiver(name='rec', grid=self.grid,
+                                 npoint=self._rec_coords.shape[0],
+                                 time_range=time_range)
+            self._rec.coordinates.data[:] = self._rec_coords
+        else:
+            self._rec = None
+
     @property
     def dims(self):
         """Model dimensions"""
@@ -177,6 +222,31 @@ class InfrasoundModel:
     def sdf(self):
         """Signed distance function for boundary"""
         return self._sdf
+
+    @property
+    def t0(self):
+        """Start time"""
+        return self._t0
+
+    @property
+    def tn(self):
+        """End time"""
+        return self._tn
+
+    @property
+    def dt(self):
+        """Timestep"""
+        return self._dt
+
+    @property
+    def src(self):
+        """Ricker source"""
+        return self._src
+
+    @property
+    def rec(self):
+        """The receiver array"""
+        return self._rec
 
 
 if __name__ == '__main__':
