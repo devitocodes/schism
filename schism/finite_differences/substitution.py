@@ -247,14 +247,32 @@ class Substitution:
         dims = self.deriv.dims
         denom_args = [dim.spacing**ord for dim, ord in zip(dims, order)]
         denom = reduce(lambda a, b: a*b, denom_args)
+
+        grid = self.geometry.grid
+        spacing_subs = {dim.spacing: spa for dim, spa in zip(grid.dimensions,
+                                                             grid.spacing)}
+        denom = denom.subs(spacing_subs)
+        # Divide weight data through by denominator instead of applying
+        # it symbolically (faster operator compilation)
+        for w in self.weight_map.values():
+            w.data[:] /= float(denom)
+
         # Get the numerator
         # Multiply each weight by its corresponding expression
-        # Divide by denom here to better resemble devito-generated stencils
-        args = [w*f/denom for w, f in zip(self.weight_map.keys(),
-                                          self.weight_map.values())]
+        func_args = {f.function: [] for f in self.weight_map.keys()}
+        for f, w in zip(self.weight_map.keys(), self.weight_map.values()):
+            func_args[f.function].append(w*f)
+
+        evalderivs = []
+        for f, args in func_args.items():
+            # Creation of EvalDerivative here enable optimization down the line
+            # Base at centred timestep doesn't seem to cause an issue?
+            evalderivs.append(dv.EvalDerivative(*args, base=f))
+        # Splitting by function seems to enable better compatibility with
+        # Devito's stencil optimizations
+        expr = sp.Add(*evalderivs)
         # Creation of EvalDerivative here enable optimization down the line
         # The derivative is of self.deriv.expr
-        expr = dv.EvalDerivative(*args, base=self.deriv.expr)
         # Set self.expr
         self._expr = expr
 
