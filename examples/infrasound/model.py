@@ -117,7 +117,8 @@ class InfrasoundModel:
         """Set up the various model fields"""
         # Pressure
         self._p = dv.TimeFunction(name='p', grid=self.grid, time_order=2,
-                                  space_order=self.space_order)
+                                  space_order=self.space_order,
+                                  staggered=dv.NODE)
         # Auxilliary field used for damping mask
         self._A = dv.VectorTimeFunction(name='p', grid=self.grid, time_order=2,
                                         space_order=self.space_order)
@@ -138,15 +139,15 @@ class InfrasoundModel:
         for i in range(self._ndims):
             dist = dv.Max(dv.Max(10-grid.dimensions[i],
                                  grid.dimensions[i]-grid.shape[i]+10), 0)
-            eq = dv.Eq(d, d + (3*c/20)*(dist/10)**2*(1/np.log(1e-5)))
+            eq = dv.Eq(d, d + (3*c/(20*grid.spacing[i]))*(dist/10)**2*(1/np.log(1e-5)))
             eqs.append(eq)
 
         op_damp = dv.Operator(eqs, name='initdamp')
         op_damp()
         # REMOVE LATER: temporary boundary mask plot
-        # plt.imshow(self.damp.data)
-        # plt.colorbar()
-        # plt.show()
+        plt.imshow(self.damp.data)
+        plt.colorbar()
+        plt.show()
 
     def _setup_sparse(self):
         """Initialise the sources and receivers"""
