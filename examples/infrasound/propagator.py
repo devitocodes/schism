@@ -1,6 +1,6 @@
 """
 Propagator for infrasound models. Encapsulates the equations and the finite
-difference operators.
+difference operators including PML absorbing boundary conditions.
 
 Note that this is intended as a demonstration of a potential use-case of
 Schism and Devito, rather than a code to be used in anger. However, it should
@@ -8,6 +8,7 @@ hopefully illustrate one approach by which such a code may be implemented.
 """
 
 import devito as dv
+import sympy as sp
 
 from cached_property import cached_property
 
@@ -36,45 +37,64 @@ class InfrasoundPropagator:
     def _setup_dense(self):
         """Set up the update equations (for dense kernels)"""
         self._p_eqs = []  # List of pressure update equations
+        self._p_aux_eqs = []  # List of auxilliary pressure update equations
         self._A_eqs = []  # List of auxilliary field equations
 
         # Shorthands
         grid = self.model.grid
         p = self.model.p
+        p_aux = self.model.p_aux
         A = self.model.A
         c = self.model.c
         dt = self.model.dt
         d = self.model.damp
 
         main_name = 'm'*self.model._ndims
-        main_domain = grid.subdomains[main_name]
 
         if self.mode == 'forward':
-            pf = p.forward
-            pb = p.backward
-            Af = A.forward
-        else:
-            pf = p.backward
-            pb = p.forward
-            Af = A.backward
+            def fwd(f):
+                return f.forward
 
-        # FIXME: Manually check the direction of propagation
+            def bwd(f):
+                return f.backward
+
+        else:
+            def fwd(f):
+                return f.backward
+
+            def bwd(f):
+                return f.forward
+
         for name, subdomain in grid.subdomains.items():
             if name == main_name:
-                self._p_eqs.append(dv.Eq(pf,
-                                         2*p - pb + dt**2*c**2*p.laplace,
+                self._p_eqs.append(dv.Eq(fwd(p),
+                                         2*p - bwd(p) + dt**2*c**2*p.laplace,
                                          subdomain=subdomain))
 
-                self._A_eqs.append(dv.Eq(Af,
+                self._A_eqs.append(dv.Eq(fwd(A),
                                          A + dt*dv.grad(p),
                                          subdomain=subdomain))
             else:
-                self._p_eqs.append(dv.Eq(pf,
-                                         p + dt*(c**2*dv.div(Af) + d*p),
-                                         subdomain=subdomain))
+                # PML regions
+                # Update auxilliary field
+                # Update auxilliary pressure
+                # Update pressure
+                for i in range(len(grid.dimensions)):
+                    dim = grid.dimensions[i]
+                    eq = dv.Eq(fwd(p_aux[i]),
+                               p_aux[i]+dt*(c**2*dv.Derivative(fwd(A[i]), dim)
+                                            - d[i]*p_aux[i]),
+                               subdomain=subdomain)
+                    self._p_aux_eqs.append(eq)
 
-                self._A_eqs.append(dv.Eq(Af,
-                                         A + dt*(dv.grad(p) + d*A),
+                self._p_eqs.append(dv.Eq(fwd(p),
+                                   sum([fwd(p_aux[i])
+                                        for i in range(len(grid.dimensions))]),
+                                   subdomain=subdomain))
+
+                self._A_eqs.append(dv.Eq(fwd(A),
+                                         A + dt*(dv.grad(p)
+                                         - sp.hadamard_product(d, A)),
                                          subdomain=subdomain))
 
     def _setup_sparse(self):
@@ -110,5 +130,6 @@ class InfrasoundPropagator:
     @cached_property
     def operator(self):
         """The finite-difference operator"""
-        return dv.Operator(self._A_eqs + self._p_eqs + self._sparse,
+        return dv.Operator(self._A_eqs + self._p_aux_eqs
+                           + self._p_eqs + self._sparse,
                            name=self.mode)

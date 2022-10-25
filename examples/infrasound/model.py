@@ -9,8 +9,6 @@ hopefully illustrate one approach by which such a code may be implemented.
 """
 
 import devito as dv
-import numpy as np
-import matplotlib.pyplot as plt
 
 from itertools import product
 from examples.seismic import TimeAxis, RickerSource, Receiver
@@ -115,39 +113,52 @@ class InfrasoundModel:
 
     def _setup_fields(self):
         """Set up the various model fields"""
+        no_stagger = tuple([dv.NODE for dim in self.grid.dimensions])
         # Pressure
         self._p = dv.TimeFunction(name='p', grid=self.grid, time_order=2,
                                   space_order=self.space_order,
                                   staggered=dv.NODE)
+        # Split pressure fields for the PMLs
+        self._p_aux = dv.VectorTimeFunction(name='p_aux', grid=self.grid,
+                                            time_order=2,
+                                            space_order=self.space_order,
+                                            staggered=no_stagger)
         # Auxilliary field used for damping mask
-        self._A = dv.VectorTimeFunction(name='p', grid=self.grid, time_order=2,
+        self._A = dv.VectorTimeFunction(name='A', grid=self.grid, time_order=2,
                                         space_order=self.space_order)
 
         # Damping mask
-        self._damp = dv.Function(name='damp', grid=self.grid)
+        self._damp = dv.VectorFunction(name='damp', grid=self.grid,
+                                       staggered=no_stagger)
 
         # Signed distance function for boundary
         self._sdf = dv.Function(name='sdf', grid=self.grid)
 
     def _setup_damping(self):
         """Initialise the damping mask"""
-        c = self.c  # Shorthand
         d = self.damp
         grid = self.grid
         # Hardcoded for 10 layers of PMLs
         eqs = []
-        for i in range(self._ndims):
-            dist = dv.Max(dv.Max(10-grid.dimensions[i],
-                                 grid.dimensions[i]-grid.shape[i]+10), 0)
-            eq = dv.Eq(d, d + (3*c/(20*grid.spacing[i]))*(dist/10)**2*(1/np.log(1e-5)))
-            eqs.append(eq)
+        default_names = ('interior', 'domain')
+        d_par = 10.  # Damping parameter
+        for name, subdomain in self.grid.subdomains.items():
+            for i in range(self._ndims):
+                if name[i] == 'l' and name not in default_names:
+                    dist = 10 - grid.dimensions[i]
+                    eq = dv.Eq(d[i],
+                               d[i]+d_par*(10.-0.5+dist)**2/(10.-0.5)**2-d_par,
+                               subdomain=subdomain)
+                    eqs.append(eq)
+                elif name[i] == 'r' and name not in default_names:
+                    dist = grid.dimensions[i]-grid.shape[i]+10
+                    eq = dv.Eq(d[i],
+                               d[i]+d_par*(10.-0.5+dist)**2/(10.-0.5)**2-d_par,
+                               subdomain=subdomain)
+                    eqs.append(eq)
 
         op_damp = dv.Operator(eqs, name='initdamp')
         op_damp()
-        # REMOVE LATER: temporary boundary mask plot
-        plt.imshow(self.damp.data)
-        plt.colorbar()
-        plt.show()
 
     def _setup_sparse(self):
         """Initialise the sources and receivers"""
@@ -208,6 +219,11 @@ class InfrasoundModel:
     def p(self):
         """Pressure"""
         return self._p
+
+    @property
+    def p_aux(self):
+        """Auxilliary pressure"""
+        return self._p_aux
 
     @property
     def A(self):
