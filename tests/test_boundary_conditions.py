@@ -202,6 +202,34 @@ class TestBC:
         expr = condition.sub_basis(basis_map)
         assert str(expr) == ans
 
+    @pytest.mark.parametrize('bc, funcs',
+                             [(dv.Eq(f, 0), None),
+                              (dv.Eq(dv.div(v), 0), None),
+                              (dv.Eq(v[0]*tau[0, 0] + v[1]*tau[0, 1], 0),
+                               None),
+                              (dv.Eq(v[0]*tau[0, 0] + v[1]*tau[0, 1], 0),
+                               (tau[0, 0], tau[0, 1])),
+                              (dv.Eq(v[0]*tau[0, 0] + v[1]*tau[0, 1], 0),
+                               (f, tau[0, 0], tau[0, 1])),
+                              (dv.Eq(f+g, 0), None),
+                              (dv.Eq(f+g, 0), (f, g)),
+                              (dv.Eq(dv.div(v), 0),
+                               (v[0], v[1], f, g)),
+                              (dv.Eq(f.laplace, 0), None),
+                              (dv.Eq(3*f+2*f.dx+f.dx2+2*g*f.dy+f.dy2, 0),
+                               None),
+                              (dv.Eq(3*f+(2+g)*f.dx+f.dx2+2*f.dy+(g+5)*f.dy2,
+                                     0), None),
+                              (dv.Eq(f*g), (f,))])
+    def test_coefficient_replacement(self, bc, funcs):
+        """
+        Check that function coefficients are correctly replaced with symbols
+        as necessary.
+        """
+        condition = SingleCondition(bc, funcs=funcs)
+        print(condition.coeff_map)
+        assert False
+
 
 class TestGroup:
     """Tests for the ConditionGroup object"""

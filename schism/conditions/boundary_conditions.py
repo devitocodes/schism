@@ -35,7 +35,7 @@ class SingleCondition:
     coeff_placeholders : tuple
         Placeholders used to replace coefficients in the LHS expression
     coeff_map : dict
-        Map between coeffcient placeholders and their expressions within the
+        Map between coefficient placeholders and their expressions within the
         LHS expression
 
     Methods
@@ -52,7 +52,8 @@ class SingleCondition:
         self._get_functions(funcs)
         # Get the dimensions in which derivatives are taken
         self._get_derivative_dimensions()
-        # Substitute the coefficients in the expression
+        # Parse the lhs and determine the coefficients
+        self._parse_lhs()
         # Note: needs to complain if a function found in the expression
         # TODO: Finish this
 
@@ -69,6 +70,29 @@ class SingleCondition:
 
     def __repr__(self):
         return "SingleCondition({})".format(str(self.equation))
+
+    def _parse_lhs(self):
+        """Parse and process the LHS of the equation"""
+        self._coeff_map = {}
+        # FIXME: These could be reused rather than searching again down the
+        # FIXME: line
+        derivs = self.lhs.find(dv.Derivative)
+        funcs = self.lhs.find(dv.Function)
+        derivs_funcs = tuple(derivs | funcs.intersection(set(self.funcs)))
+        coeff_inc = 0
+        for i in range(len(derivs_funcs)):
+            coeff = self.lhs.coeff(derivs_funcs[i])
+            print(derivs_funcs[i], "has coefficient:", coeff, type(coeff))
+            if not isinstance(coeff, sp.core.numbers.Number):
+                coeff_sym = sp.Symbol('coeff_' + str(coeff_inc))
+                coeff_inc += 1  # Increment the coefficient labels
+                self._coeff_map[coeff_sym] = (derivs_funcs[i], coeff)
+            print()
+            # Generate a symbol
+            # Create an entry if the coefficient is not a constant
+            # Do this by checking if it can be converted to float
+            # Create an set of args for the Mul
+            # Create the modified LHS
 
     def _parse_rhs(self):
         """Parse and process the RHS of the equation"""
@@ -175,6 +199,11 @@ class SingleCondition:
     def dims(self):
         """Dimensions in which derivatives are taken"""
         return self._dims
+
+    @property
+    def coeff_map(self):
+        """Mapping between coefficients and the expressions they replace"""
+        return frozendict(self._coeff_map)
 
 
 class ConditionGroup:
