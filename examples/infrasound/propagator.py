@@ -9,6 +9,7 @@ hopefully illustrate one approach by which such a code may be implemented.
 
 import devito as dv
 import sympy as sp
+import numpy as np
 
 from cached_property import cached_property
 
@@ -25,6 +26,9 @@ class InfrasoundPropagator:
     mode : str
         Mode of propagation. Can be 'forward' or 'adjoint'. Default is
         'forward'.
+    track_zsc : bool
+        Track the z-score. This is a measure of energy concentration devised
+        by Kim and Lees 2014
     """
     def __init__(self, *args, **kwargs):
         self._model = kwargs.get('model')
@@ -33,6 +37,8 @@ class InfrasoundPropagator:
         self._mode = kwargs.get('mode', 'forward')
         self._setup_dense()
         self._setup_sparse()
+        self._track_zsc = kwargs.get('track_zsc', False)
+        self._setup_heuristics()
 
     def _setup_dense(self):
         """Set up the update equations (for dense kernels)"""
@@ -105,12 +111,55 @@ class InfrasoundPropagator:
         if self.mode == 'forward':
             # Timestep to update
             pf = p.forward
+            if self.model.src is not None:
+                self._sparse.append(self.model.src.inject(field=pf,
+                                                          expr=self.model.src))
+
+            if self.model.rec is not None:
+                self._sparse.append(self.model.rec.interpolate(expr=pf))
         else:
             pf = p.backward
+            if self.model.rec is not None:
+                self._sparse.append(self.model.rec.inject(field=pf,
+                                                          expr=self.model.rec))
 
-        if self.model.src is not None:
-            self._sparse.append(self.model.src.inject(field=pf,
-                                                      expr=self.model.src))
+    def _setup_heuristics(self):
+        """Set up tracking terms"""
+        if self.mode == 'forward':
+            def fwd(f):
+                return f.forward
+        else:
+            def fwd(f):
+                return f.backward
+
+        p = self.model.p
+        zsc = self.model.zsc
+        c = self.model.c
+        dt = self.model.dt
+        self._heuristics = []
+
+        main_name = 'm'*self.model._ndims
+
+        if self._track_zsc:
+            grid_size = np.prod(self.model.grid.shape)
+            # Mean of field
+            mu = dv.TimeFunction(name='mu', dimensions=(p.time_dim,),
+                                 time_order=2, shape=(self.model.src.nt,))
+            self._heuristics.append(dv.Inc(mu, fwd(p)/grid_size))
+            # Squared standard deviation
+            sigma2 = dv.TimeFunction(name='sigma2', dimensions=(p.time_dim,),
+                                     time_order=2, shape=(self.model.src.nt,))
+            self._heuristics.append(dv.Inc(sigma2,
+                                           (fwd(p)-mu)**2/grid_size))
+            sigma = dv.sqrt(sigma2)
+            # Scaling for geometric attenuation (approximate)
+            scale = dv.TimeFunction(name='scale', dimensions=(p.time_dim,),
+                                    time_order=2, shape=(self.model.src.nt,))
+            self._heuristics.append(dv.Eq(fwd(scale), scale + c*dt))
+            zsc_eq = dv.Eq(fwd(zsc),
+                           dv.Max(zsc, scale**2*(fwd(p)-mu)/sigma),
+                           subdomain=self.model.grid.subdomains[main_name])
+            self._heuristics.append(zsc_eq)
 
     def run(self):
         """Run the propagator"""
@@ -131,5 +180,6 @@ class InfrasoundPropagator:
     def operator(self):
         """The finite-difference operator"""
         return dv.Operator(self._A_eqs + self._p_aux_eqs
-                           + self._p_eqs + self._sparse,
+                           + self._p_eqs + self._sparse
+                           + self._heuristics,
                            name=self.mode)

@@ -134,6 +134,11 @@ class InfrasoundModel:
         # Signed distance function for boundary
         self._sdf = dv.Function(name='sdf', grid=self.grid)
 
+        # Z score (measure of energy concentration, Kim and Lees 2014)
+        self._zsc = dv.TimeFunction(name='zsc', grid=self.grid,
+                                    time_order=0,
+                                    staggered=dv.NODE)
+
     def _setup_damping(self):
         """Initialise the damping mask"""
         d = self.damp
@@ -141,7 +146,7 @@ class InfrasoundModel:
         # Hardcoded for 10 layers of PMLs
         eqs = []
         default_names = ('interior', 'domain')
-        d_par = 10.  # Damping parameter
+        d_par = 2.  # Damping parameter
         for name, subdomain in self.grid.subdomains.items():
             for i in range(self._ndims):
                 if name[i] == 'l' and name not in default_names:
@@ -239,6 +244,11 @@ class InfrasoundModel:
     def sdf(self):
         """Signed distance function for boundary"""
         return self._sdf
+
+    @property
+    def zsc(self):
+        """The z-score as defined by Kim and Lees 2014"""
+        return self._zsc
 
     @property
     def t0(self):
