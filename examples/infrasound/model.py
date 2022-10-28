@@ -12,6 +12,7 @@ import devito as dv
 
 from itertools import product
 from examples.seismic import TimeAxis, RickerSource, Receiver
+from schism import BoundaryGeometry, BoundaryConditions, Boundary
 
 
 class BoundaryDomain(dv.SubDomain):
@@ -61,6 +62,8 @@ class InfrasoundModel:
         End time of the model
     dt : float
         Timestep
+    boundary : bool
+        Use an immersed boundary. Default is False.
     """
     def __init__(self, *args, **kwargs):
         self._ndims = kwargs.get('dims', 2)
@@ -75,6 +78,10 @@ class InfrasoundModel:
 
         self._c = kwargs.get('c', 350.)  # Celerity
         self._space_order = kwargs.get('space_order', 4)
+        self._boundary = kwargs.get('boundary', False)
+        self._sdf_data = kwargs.get('sdf_data')
+        if self._sdf_data is None:
+            raise ValueError("Boundary specified but no SDF provided")
         self._setup_fields()
 
         self._setup_damping()
@@ -86,6 +93,8 @@ class InfrasoundModel:
         self._dt = kwargs.get('dt')
         self._src_f = kwargs.get('src_f', 1.)
         self._setup_sparse()
+
+        self._setup_boundary()
 
     def _generate_dims(self):
         """Set up dimensions according to number specified"""
@@ -131,8 +140,11 @@ class InfrasoundModel:
         self._damp = dv.VectorFunction(name='damp', grid=self.grid,
                                        staggered=no_stagger)
 
-        # Signed distance function for boundary
-        self._sdf = dv.Function(name='sdf', grid=self.grid)
+        if self._boundary:
+            # Signed distance function for boundary
+            self._sdf = dv.Function(name='sdf', grid=self.grid,
+                                    space_order=self.space_order)
+            self._sdf.data[:] = self._sdf_data[:]
 
         # Z score (measure of energy concentration, Kim and Lees 2014)
         self._zsc = dv.TimeFunction(name='zsc', grid=self.grid,
@@ -184,6 +196,25 @@ class InfrasoundModel:
             self._rec.coordinates.data[:] = self._rec_coords
         else:
             self._rec = None
+
+    def _setup_boundary(self):
+        """Set up the immersed boundary"""
+        self._bg = BoundaryGeometry(self.sdf)
+        if self.space_order == 2:
+            bc_list = [dv.Eq(self.p.dx, 0),
+                       dv.Eq(self.p.dy, 0)]
+        elif self.space_order == 4:
+            bc_list = [dv.Eq(self.p.dx, 0),
+                       dv.Eq(self.p.dy, 0),
+                       dv.Eq(self.p.dx3 + self.p.dxdy2, 0),
+                       dv.Eq(self.p.dx2dy + self.p.dy3, 0)]
+        else:
+            raise NotImplementedError("Higher-order BCs not yet implemented")
+
+        self._bcs = BoundaryConditions(bc_list)
+        self._boundary = Boundary(self._bcs, self._bg)
+        derivs = (self.p.dx2, self.p.dy2)
+        self._subs = self._boundary.substitutions(derivs)
 
     @property
     def dims(self):

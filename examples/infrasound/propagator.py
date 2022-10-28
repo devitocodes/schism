@@ -71,10 +71,13 @@ class InfrasoundPropagator:
             def bwd(f):
                 return f.forward
 
+        # Immersed boundary things
+        subs = self.model._subs
+
         for name, subdomain in grid.subdomains.items():
             if name == main_name:
                 self._p_eqs.append(dv.Eq(fwd(p),
-                                         2*p - bwd(p) + dt**2*c**2*p.laplace,
+                                         2*p - bwd(p) + dt**2*c**2*(subs[p.dx2]+subs[p.dy2]),
                                          subdomain=subdomain))
 
                 self._A_eqs.append(dv.Eq(fwd(A),
