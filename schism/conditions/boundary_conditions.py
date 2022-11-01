@@ -181,8 +181,9 @@ class SingleCondition:
         Substitute functions in the boundary condition for their respective
         basis functions.
         """
+        # FIXME: Needs to act on the modified LHS
         derivs = self.lhs.find(dv.Derivative)
-        funcs = self.lhs.find(dv.Function)
+        funcs = self.lhs.find(dv.Function).intersection(set(self.funcs))
         reps = {}
         for func in funcs:
             try:
@@ -205,7 +206,7 @@ class SingleCondition:
             b_derivs = tuple([(deriv.dims[i], d_o[i])
                               for i in range(len(deriv.dims))])
             reps[deriv] = basis.deriv(b_derivs)
-        return sp.simplify(self.lhs.subs(reps))
+        return sp.simplify(self._mod_lhs.subs(reps))
 
     @property
     def equation(self):
