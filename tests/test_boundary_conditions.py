@@ -230,7 +230,8 @@ class TestBC:
         as necessary.
         """
         condition = SingleCondition(bc, funcs=funcs)
-
+        # Check that if we substitute the placeholders for their expressions,
+        # we get our original LHS
         check = sp.simplify(condition.lhs
                             - condition._mod_lhs.subs(condition.expr_map))
 
