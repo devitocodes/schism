@@ -193,7 +193,21 @@ class TestBC:
                               (dv.Eq(f.dx2, 0), {f: basisfx}, 'd_f_x(2,)'),
                               (dv.Eq(f.dy2, 0), {f: basisfy}, 'd_f_y(2,)'),
                               (dv.Eq(f.dxdy, 0), {f: basisf2D},
-                               'd_f_2d(1, 1)')])
+                               'd_f_2d(1, 1)'),
+                              (dv.Eq(g*f, 0), {f: basisf2D},
+                               'coeff_0*(x**2*d_f_2d(2, 0) '
+                               + '+ 2*x*y*d_f_2d(1, 1) + 2*x*d_f_2d(1, 0) '
+                               + '+ y**2*d_f_2d(0, 2) + 2*y*d_f_2d(0, 1) '
+                               + '+ 2*d_f_2d(0, 0))/2'),
+                              (dv.Eq(n.dot(v), 0),
+                               {v[0]: basisvx, v[1]: basisvy},
+                               'coeff_0*(x**2*d_vx(2, 0) + 2*x*y*d_vx(1, 1) '
+                               + '+ 2*x*d_vx(1, 0) + y**2*d_vx(0, 2) '
+                               + '+ 2*y*d_vx(0, 1) + 2*d_vx(0, 0))/2 '
+                               + '+ coeff_1*(x**2*d_vy(2, 0) '
+                               + '+ 2*x*y*d_vy(1, 1) + 2*x*d_vy(1, 0) '
+                               + '+ y**2*d_vy(0, 2) + 2*y*d_vy(0, 1) '
+                               + '+ 2*d_vy(0, 0))/2')])
     def test_basis_substitution(self, bc, basis_map, ans):
         """
         Check that substituting basis functions in yields the correct
@@ -201,6 +215,7 @@ class TestBC:
         """
         condition = SingleCondition(bc)
         expr = condition.sub_basis(basis_map)
+        print(expr)
         assert str(expr) == ans
 
     @pytest.mark.parametrize('bc, funcs',
