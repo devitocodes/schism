@@ -118,6 +118,7 @@ class TestBC:
     g = dv.Function(name='g', grid=grid, space_order=2)
     h = dv.TimeFunction(name='h', grid=grid, space_order=2)
     v = dv.VectorTimeFunction(name='v', grid=grid, space_order=2)
+    n = dv.VectorFunction(name='n', grid=grid, space_order=2)
     tau = dv.TensorTimeFunction(name='tau', grid=grid)
 
     @pytest.mark.parametrize('bc, funcs, ans',
@@ -205,7 +206,7 @@ class TestBC:
     @pytest.mark.parametrize('bc, funcs',
                              [(dv.Eq(f, 0), None),
                               (dv.Eq(dv.div(v), 0), None),
-                              (dv.Eq(v[0]*tau[0, 0] + v[1]*tau[0, 1], 0),
+                              (dv.Eq(n[0]*tau[0, 0] + n[1]*tau[0, 1], 0),
                                None),
                               (dv.Eq(v[0]*tau[0, 0] + v[1]*tau[0, 1], 0),
                                (tau[0, 0], tau[0, 1])),
@@ -220,15 +221,20 @@ class TestBC:
                                None),
                               (dv.Eq(3*f+(2+g)*f.dx+f.dx2+2*f.dy+(g+5)*f.dy2,
                                      0), None),
-                              (dv.Eq(f*g), (f,))])
+                              (dv.Eq(f*g), (f,)),
+                              (dv.Eq(f+1), None),
+                              (dv.Eq(2*f), None)])
     def test_coefficient_replacement(self, bc, funcs):
         """
         Check that function coefficients are correctly replaced with symbols
         as necessary.
         """
         condition = SingleCondition(bc, funcs=funcs)
-        print(condition.coeff_map)
-        assert False
+
+        check = sp.simplify(condition.lhs
+                            - condition._mod_lhs.subs(condition.expr_map))
+
+        assert check == 0
 
 
 class TestGroup:
