@@ -37,8 +37,6 @@ class SingleCondition:
     expr_map : dict
         Map between coefficient placeholders and their expressions within the
         LHS expression
-    coeff_map : dict
-        Map between coefficients and the symbols to which they are applied
 
     Methods
     -------
@@ -233,14 +231,6 @@ class SingleCondition:
     def dims(self):
         """Dimensions in which derivatives are taken"""
         return self._dims
-
-    @property
-    def coeff_map(self):
-        """
-        Mapping between coefficients and the functions and derivatives to which
-        they are applied.
-        """
-        return frozendict(self._coeff_map)
 
     @property
     def expr_map(self):
