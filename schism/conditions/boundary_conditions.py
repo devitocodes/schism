@@ -78,11 +78,15 @@ class SingleCondition:
         """
         self._expr_map = {}
         coeff_inc = 0
-        if isinstance(self.lhs, dv.Function):
+
+        # Expansion necessary to avoid expressions which should be Add being
+        # disguised as Mul. For example g*(f+1) -> g*f + g.
+        exp_lhs = sp.expand(self.lhs)
+        if isinstance(exp_lhs, dv.Function):
             self._mod_lhs = self.lhs  # No coefficients to substitute
-        elif isinstance(self.lhs, dv.Derivative):
+        elif isinstance(exp_lhs, dv.Derivative):
             self._mod_lhs = self.lhs  # No coefficients to substitute
-        elif isinstance(self.lhs, sp.Mul):
+        elif isinstance(exp_lhs, sp.Mul):
             # LHS is some function/derivative with a coefficient
             derivs = self.lhs.find(dv.Derivative)
             funcs = self.lhs.find(dv.Function).intersection(set(self.funcs))
@@ -100,9 +104,9 @@ class SingleCondition:
                 else:
                     mod_args.append(coeff*item)
             self._mod_lhs = sum(mod_args)
-        elif isinstance(self.lhs, sp.Add):
+        elif isinstance(exp_lhs, sp.Add):
             # LHS contains a bunch of Functions, Derivatives, and coefficients
-            args = self.lhs._args
+            args = exp_lhs._args
             mod_args = list(args)  # Will modifiy entries in this list
             for i in range(len(mod_args)):
                 arg = mod_args[i]  # Doesn't actually acess directly
@@ -120,6 +124,13 @@ class SingleCondition:
                         coeff_inc += 1  # Increment the coefficient labels
                         self._expr_map[coeff_sym] = coeff
                         item_args.append(coeff_sym*item)
+                if len(derivs_funcs) == 0:
+                    if len(arg.find(dv.Function)) != 0:
+                        # Other functions present in the expression
+                        coeff = arg
+                        coeff_sym = sp.Symbol('coeff_' + str(coeff_inc))
+                        self._expr_map[coeff_sym] = coeff
+                        mod_args[i] = coeff_sym
                 if len(item_args) != 0:  # If I have coefficients to modify
                     mod_args[i] = sum(item_args)  # Overwrite current arg
             self._mod_lhs = sum(mod_args)

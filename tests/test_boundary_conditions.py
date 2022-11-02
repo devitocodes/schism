@@ -238,7 +238,8 @@ class TestBC:
                                      0), None),
                               (dv.Eq(f*g), (f,)),
                               (dv.Eq(f+1), None),
-                              (dv.Eq(2*f), None)])
+                              (dv.Eq(2*f), None),
+                              (dv.Eq(f+g), None)])
     def test_coefficient_replacement(self, bc, funcs):
         """
         Check that function coefficients are correctly replaced with symbols
@@ -251,6 +252,22 @@ class TestBC:
                             - condition._mod_lhs.subs(condition.expr_map))
 
         assert check == 0
+
+    @pytest.mark.parametrize('bc, g', [(dv.Eq(f+g), g), (dv.Eq(g*f.dx+g), g),
+                                       (dv.Eq(f+g+1), g), (dv.Eq(g*(f+1)), g)])
+    def test_variable_purging(self, bc, g):
+        """
+        Check that all variable coefficients are purged during the coefficient
+        replacement process.
+        """
+        # Need to pass in g to check it has been purged
+        condition = SingleCondition(bc)
+
+        # Check that g has been purged from equations
+        assert g not in condition._mod_lhs.find(dv.Function)
+        # Check that g is present in expr_map
+        for item in condition.expr_map.values():
+            assert g in item.find(dv.Function)
 
 
 class TestGroup:
