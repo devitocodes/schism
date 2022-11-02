@@ -78,6 +78,7 @@ class SingleCondition:
         """
         self._expr_map = {}
         coeff_inc = 0
+        self._rhs_args = []  # Args to be moved to RHS, for example 1 in f+1
 
         # Expansion necessary to avoid expressions which should be Add being
         # disguised as Mul. For example g*(f+1) -> g*f + g.
@@ -125,12 +126,10 @@ class SingleCondition:
                         self._expr_map[coeff_sym] = coeff
                         item_args.append(coeff_sym*item)
                 if len(derivs_funcs) == 0:
-                    if len(arg.find(dv.Function)) != 0:
-                        # Other functions present in the expression
-                        coeff = arg
-                        coeff_sym = sp.Symbol('coeff_' + str(coeff_inc))
-                        self._expr_map[coeff_sym] = coeff
-                        mod_args[i] = coeff_sym
+                    # Argument belongs on rhs and should be moved there in due
+                    # course
+                    self._rhs_args.append(arg)
+                    mod_args[i] = 0  # Remove such terms
                 if len(item_args) != 0:  # If I have coefficients to modify
                     mod_args[i] = sum(item_args)  # Overwrite current arg
             self._mod_lhs = sum(mod_args)

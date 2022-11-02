@@ -227,7 +227,6 @@ class TestBC:
                                (tau[0, 0], tau[0, 1])),
                               (dv.Eq(v[0]*tau[0, 0] + v[1]*tau[0, 1], 0),
                                (f, tau[0, 0], tau[0, 1])),
-                              (dv.Eq(f+g, 0), None),
                               (dv.Eq(f+g, 0), (f, g)),
                               (dv.Eq(dv.div(v), 0),
                                (v[0], v[1], f, g)),
@@ -237,9 +236,7 @@ class TestBC:
                               (dv.Eq(3*f+(2+g)*f.dx+f.dx2+2*f.dy+(g+5)*f.dy2,
                                      0), None),
                               (dv.Eq(f*g), (f,)),
-                              (dv.Eq(f+1), None),
-                              (dv.Eq(2*f), None),
-                              (dv.Eq(f+g), None)])
+                              (dv.Eq(2*f), None)])
     def test_coefficient_replacement(self, bc, funcs):
         """
         Check that function coefficients are correctly replaced with symbols
@@ -268,6 +265,19 @@ class TestBC:
         # Check that g is present in expr_map
         for item in condition.expr_map.values():
             assert g in item.find(dv.Function)
+
+    @pytest.mark.parametrize('bc, ans',
+                             [(dv.Eq(f+1), [1]),
+                              (dv.Eq(f+g), [g]),
+                              (dv.Eq(f+g+1), [1, g])])
+    def test_rhs_args(self, bc, ans):
+        """
+        Check that terms that should be moved to the RHS are correctly
+        collected.
+        """
+        condition = SingleCondition(bc)
+
+        assert set(condition._rhs_args) == set(ans)
 
 
 class TestGroup:
