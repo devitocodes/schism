@@ -33,12 +33,12 @@ def row_from_expr(expr, funcs, basis_map, additional_params=None):
         a SymPy broadcasting bug, the first two arguments should be set to 0
         for scalar values or np.zeros(shape) for arrays.
     """
-
     prelim_row = []
     for func in funcs:
         basis = basis_map[func]
         for term in basis.terms:
-            prelim_row.append(expr.coeff(basis.d[term]))
+            # Needs a sp.expand otherwise coeff gathering is too stupid
+            prelim_row.append(sp.expand(expr).coeff(basis.d[term]))
 
     # Need to add a dummy symbol and pass this as an argument
     # This is a workaround for SymPy issue #5642 to make the generated
