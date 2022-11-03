@@ -1,4 +1,4 @@
-"""Tools for finite difference stencils"""
+"""Tools for generating finite difference stencils"""
 
 import sympy as sp
 import numpy as np
@@ -58,3 +58,41 @@ def get_sten_vector(deriv, points):
 
     coeff_vec = coeffs[offset_inds]
     return coeff_vec
+
+
+def extract_values(grid, symbols, expr_map, points):
+    """
+    Pull values of some expression off of the grid. Used in the evaluation of
+    variable coefficients in boundary conditions.
+
+    Parameters
+    ----------
+    grid : Devito Grid
+        The grid on which the Functions are defined
+    symbols : tuple
+        Tuple containing the coefficient placeholder symbols
+    expr_map : dict
+        Mapping between coefficient placeholder symbols and their respective
+        expressions
+    points : tuple
+        Tuple of arrays containing the x, y, z, etc values of points where
+        values are to be extracted
+    """
+    interp_terms = []  # Interpolation terms
+    sparse_map = {}
+    npts = points[0].shape[0]
+    for sym in symbols:
+        expr = expr_map[sym]
+        func = dv.SparseFunction(name=sym.name, grid=grid, npoint=npts)
+        sparse_map[sym] = func
+        for i in range(len(points)):
+            # Set the coordinates
+            func.coordinates.data[:, i] = points[i]
+
+        # Create an interpolation term for this
+        interp = func.interpolate(expr=expr)
+        interp_terms.append(interp)
+
+    dv.Operator(interp_terms, name='eval_coeffs')()
+
+    return tuple([sparse_map[sym].data for sym in symbols])

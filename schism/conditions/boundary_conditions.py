@@ -54,8 +54,8 @@ class SingleCondition:
         self._get_derivative_dimensions()
         # Parse the lhs and determine the coefficients
         self._parse_lhs()
-        # Note: needs to complain if a function found in the expression
-        # TODO: Finish this
+        # Create a master list of coefficient placeholders
+        self._coeff_placeholders = tuple(self.expr_map.keys())
 
     def __eq__(self, other):
         lhs_equal = self.lhs - other.lhs == 0
@@ -249,6 +249,11 @@ class SingleCondition:
         Mapping between coefficient symbols and the expressions they replace.
         """
         return frozendict(self._expr_map)
+
+    @property
+    def coeff_placeholders(self):
+        """Placeholder symbols used to replace coefficients"""
+        return self._coeff_placeholders
 
 
 class ConditionGroup:
