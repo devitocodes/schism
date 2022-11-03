@@ -11,7 +11,7 @@ from devito.tools.data_structures import frozendict
 from schism.basic import row_from_expr
 from schism.geometry.support_region import get_points_and_oob
 from schism.geometry.skin import stencil_footprint
-from schism.finite_differences.tools import get_sten_vector
+from schism.finite_differences.tools import get_sten_vector, extract_values
 
 
 class MultiInterpolant:
@@ -283,15 +283,30 @@ class Interpolant:
 
         pos = tuple(pos)
 
+        # For variable coefficient evaluation, we also need the physical
+        # locations of the modified points. Convert from indices to physical
+        # space
+        phys_loc = tuple([ind*spa for ind, spa
+                          in zip(bp, self.geometry.grid.spacing)])
+
         submats = []
         vecs = []  # RHS vectors (zero for now)
         for bc in self.group.conditions:
+            # Get any placeholder coefficients
+            coeff_placeholders = bc.coeff_placeholders
+            if len(coeff_placeholders) != 0:
+                expr_map = bc.expr_map
+                coeffs = extract_values(self.geometry.grid, coeff_placeholders,
+                                        expr_map, phys_loc)
+            else:
+                coeffs = ()
             # Note, the first two axes will need swapping in due course
             submat = np.zeros((nterms, nsten, nmod))
             # Substitute the basis funcs into the boundary condition
             expr = bc.sub_basis(self.basis_map)
-            rowfunc = row_from_expr(expr, self.group.funcs, self.basis_map)
-            submat[:, self.boundary_mask] = rowfunc(*pos)
+            rowfunc = row_from_expr(expr, self.group.funcs, self.basis_map,
+                                    additional_params=coeff_placeholders)
+            submat[:, self.boundary_mask] = rowfunc(*pos, *coeffs)
             submats.append(submat)
 
             # Filling the RHS with zeros for now
