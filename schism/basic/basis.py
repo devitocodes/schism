@@ -68,7 +68,9 @@ def row_from_expr(expr, funcs, basis_map, additional_params=None):
 
         # Generate the matrix rows
         mat_rows = gen_func(np.zeros(param_shape), *param_vals)
-        return np.squeeze(mat_rows)
+        # Squeeze can probably just be applied to middle axis
+        # Otherwise we get issues when we have only one point
+        return np.squeeze(mat_rows, axis=1)
 
     return rowfunc
 
