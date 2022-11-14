@@ -1,0 +1,80 @@
+"""
+A simple example demonstrating an infrasound propagation simulation with
+topography in 3D. Runs a source localisation method based off of Kim and Lees
+2014 with topography implemented as an immersed boundary.
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+from model import InfrasoundModel
+from propagator import InfrasoundPropagator
+
+src_coords = np.array([4800., 4800., 2550.])[np.newaxis, :]
+rec_coords = np.array([[2400., 2400., 1275.],
+                       [7200., 2400., 1275.],
+                       [2400., 7200., 1275.],
+                       [7200., 7200., 1275.],
+                       [2400., 2400., 3825.],
+                       [7200., 2400., 3825.],
+                       [2400., 7200., 3825.],
+                       [7200., 7200., 3825.]])
+
+# Original time is 13s
+t0, tn, dt = 0., 6., 0.021  # Courant number ~0.25
+src_f = 1.
+
+sdf_data = -np.load('surface_files/mt_st_helens_3d.npy')
+# Plot extent
+plt_ext = (0., 9600., 0., 5100.)
+xmid = 321//2
+plt.imshow(sdf_data[xmid].T, origin='lower', extent=plt_ext)
+plt.colorbar()
+plt.show()
+model = InfrasoundModel(dims=3, shape=(321, 321, 171),
+                        extent=(9600., 9600., 5100.),
+                        space_order=2,
+                        src_coords=src_coords, rec_coords=rec_coords,
+                        t0=t0, tn=tn, dt=dt, src_f=src_f, sdf_data=sdf_data,
+                        boundary=True)
+
+propagator = InfrasoundPropagator(model=model, mode='forward')
+propagator.run()
+
+print(np.linalg.norm(model.p.data[-1]))
+
+
+plt.imshow(model.p.data[-1, xmid].T, origin='lower', extent=plt_ext)
+plt.colorbar()
+plt.show()
+
+"""
+print(np.linalg.norm(model.rec.data[:, 0]))
+plt.plot(model.rec.data[:, 0])
+plt.show()
+
+# Next step is backpropagation
+# Reset the fields
+model.p.data[:] = 0
+model.p_aux[0].data[:] = 0
+model.p_aux[1].data[:] = 0
+model.A[0].data[:] = 0
+model.A[1].data[:] = 0
+
+# Normalise the recordings
+max_amplitude = np.amax(np.abs(model.rec.data), axis=0)
+model.rec.data[:] /= max_amplitude[np.newaxis, :]
+
+bpropagator = InfrasoundPropagator(model=model, mode='adjoint',
+                                   track_zsc=True)
+bpropagator.run()
+
+print(np.linalg.norm(model.p.data[-1]))
+plt.imshow(model.p.data[-1, xmid].T, origin='lower', extent=plt_ext)
+plt.colorbar()
+plt.show()
+
+plt.imshow(model.zsc.data[-1, xmid].T, origin='lower', extent=plt_ext)
+plt.colorbar()
+plt.show()
+"""

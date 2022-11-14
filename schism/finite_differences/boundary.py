@@ -54,6 +54,7 @@ class Boundary:
         """
         subs = {}  # Dict of substitutions
         for deriv in derivs:
+            print("Generating stencils for", deriv)
             if not isinstance(deriv.expr, dv.Function):
                 raise TypeError("Substituted derivatives must be of functions")
             skin = ModifiedSkin(deriv, self.geometry)

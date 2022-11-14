@@ -78,9 +78,9 @@ class InfrasoundModel:
 
         self._c = kwargs.get('c', 350.)  # Celerity
         self._space_order = kwargs.get('space_order', 4)
-        self._boundary = kwargs.get('boundary', False)
+        self._use_boundary = kwargs.get('boundary', False)
         self._sdf_data = kwargs.get('sdf_data')
-        if self._sdf_data is None:
+        if self._use_boundary and self._sdf_data is None:
             raise ValueError("Boundary specified but no SDF provided")
         self._setup_fields()
 
@@ -140,7 +140,7 @@ class InfrasoundModel:
         self._damp = dv.VectorFunction(name='damp', grid=self.grid,
                                        staggered=no_stagger)
 
-        if self._boundary:
+        if self._use_boundary:
             # Signed distance function for boundary
             self._sdf = dv.Function(name='sdf', grid=self.grid,
                                     space_order=self.space_order)
@@ -199,22 +199,56 @@ class InfrasoundModel:
 
     def _setup_boundary(self):
         """Set up the immersed boundary"""
-        self._bg = BoundaryGeometry(self.sdf)
-        if self.space_order == 2:
-            bc_list = [dv.Eq(self.p.dx, 0),
-                       dv.Eq(self.p.dy, 0)]
-        elif self.space_order == 4:
-            bc_list = [dv.Eq(self.p.dx, 0),
-                       dv.Eq(self.p.dy, 0),
-                       dv.Eq(self.p.dx3 + self.p.dxdy2, 0),
-                       dv.Eq(self.p.dx2dy + self.p.dy3, 0)]
-        else:
-            raise NotImplementedError("Higher-order BCs not yet implemented")
+        if self._use_boundary:
+            self._bg = BoundaryGeometry(self.sdf)
+            if self._ndims == 2:
+                if self.space_order == 2:
+                    bc_list = [dv.Eq(self.p.dx, 0),
+                               dv.Eq(self.p.dy, 0)]
+                elif self.space_order == 4:
+                    bc_list = [dv.Eq(self.p.dx, 0),
+                               dv.Eq(self.p.dy, 0),
+                               dv.Eq(self.p.dx3 + self.p.dxdy2, 0),
+                               dv.Eq(self.p.dx2dy + self.p.dy3, 0)]
+                else:
+                    errmsg = "Higher-order BCs not yet implemented"
+                    raise NotImplementedError(errmsg)
+            elif self._ndims == 3:
+                if self.space_order == 2:
+                    bc_list = [dv.Eq(self.p.dx, 0),
+                               dv.Eq(self.p.dy, 0),
+                               dv.Eq(self.p.dz, 0)]
+                elif self.space_order == 4:
+                    # bc_list = [dv.Eq(self.p.dx, 0),
+                    #            dv.Eq(self.p.dy, 0),
+                    #            dv.Eq(self.p.dz, 0),
+                    #            dv.Eq(self.p.dx3 + self.p.dxdy2
+                    #                  + self.p.dxdz2, 0),
+                    #            dv.Eq(self.p.dx2dy + self.p.dy3
+                    #                  + self.p.dydz2, 0),
+                    #            dv.Eq(self.p.dx2dz + self.p.dy2dz
+                    #                  + self.p.dz3, 0)]
+                    bc_list = [dv.Eq(self.p.dx, 0),
+                               dv.Eq(self.p.dy, 0),
+                               dv.Eq(self.p.dz, 0),
+                               dv.Eq(self.p.dx3, 0),
+                               dv.Eq(self.p.dy3, 0),
+                               dv.Eq(self.p.dz3, 0)]
+                else:
+                    errmsg = "Higher-order BCs not yet implemented"
+                    raise NotImplementedError(errmsg)
 
-        self._bcs = BoundaryConditions(bc_list)
-        self._boundary = Boundary(self._bcs, self._bg)
-        derivs = (self.p.dx2, self.p.dy2)
-        self._subs = self._boundary.substitutions(derivs)
+            self._bcs = BoundaryConditions(bc_list)
+            self._boundary = Boundary(self._bcs, self._bg)
+            derivs = (self.p.dx2, self.p.dy2)
+            if self._ndims == 3:
+                derivs = derivs + (self.p.dz2,)
+            self._subs = self._boundary.substitutions(derivs)
+        else:
+            self._bg = None
+            self._bcs = None
+            self._boundary = None
+            self._subs = None
 
     @property
     def dims(self):
@@ -305,6 +339,11 @@ class InfrasoundModel:
     def rec(self):
         """The receiver array"""
         return self._rec
+
+    @property
+    def boundary(self):
+        """The immersed boundary object"""
+        return self._boundary
 
 
 if __name__ == '__main__':
