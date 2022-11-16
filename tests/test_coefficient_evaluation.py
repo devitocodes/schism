@@ -116,7 +116,7 @@ class TestFullStack:
         Check that stencils based on variable coefficients are correctly
         constructed and converge as expected.
         """
-        resolutions = [51, 61, 71, 81, 91, 101]
+        resolutions = [51, 61, 71, 81, 91, 101, 111, 121, 131, 141, 151]
         dfdx_errs = []
         dfdy_errs = []
         for res in resolutions:
