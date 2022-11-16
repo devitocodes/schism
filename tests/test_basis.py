@@ -132,6 +132,8 @@ class TestRowFromExpression:
     grid = dv.Grid(shape=(11, 11), extent=(10., 10.))
     x, y = grid.dimensions
     f = dv.TimeFunction(name='f', grid=grid, space_order=2)
+    g = dv.Function(name='g', grid=grid, space_order=2)
+    n = dv.VectorFunction(name='n', grid=grid, space_order=2)
     v = dv.VectorTimeFunction(name='v', grid=grid, space_order=2)
 
     basisf2D = Basis('f_2d', grid.dimensions, f.space_order)
@@ -165,3 +167,30 @@ class TestRowFromExpression:
 
         point = (0.6, 0.8)
         assert np.all(np.isclose(rowfunc(*point), ans))
+
+    @pytest.mark.parametrize('bc, basis_map, coeffs, ans',
+                             [(dv.Eq(n.dot(v), 0),
+                               {v[0]: basisvx, v[1]: basisvy}, (1, 2),
+                               [1., 0.8, 0.32, 0.6, 0.48, 0.18, 2., 1.6, 0.64,
+                                1.2, 0.96, 0.36]),
+                              (dv.Eq(g*f.dx, 0),
+                               {f: basisf2D}, (2,),
+                               [0., 0., 0., 2., 1.6, 1.2])])
+    def test_with_additional_params(self, bc, basis_map, coeffs, ans):
+        """
+        Check that expressions containing additional parameters (such as
+        variable coefficients in boundary conditions) are correctly turned into
+        row functions.
+        """
+        condition = SingleCondition(bc)
+        expr = condition.sub_basis(basis_map)
+        funcs = tuple(basis_map.keys())
+
+        # Get the additional parameters
+        add_params = tuple(condition.expr_map.keys())
+        rowfunc = row_from_expr(expr, funcs, basis_map,
+                                additional_params=add_params)
+
+        point = (0.6, 0.8)
+
+        assert np.all(np.isclose(rowfunc(*point, *coeffs), ans))

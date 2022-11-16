@@ -202,6 +202,27 @@ class TestSubstitution:
 
         assert wnames == check
 
+    def test_unique_weight_names(self):
+        """Check that generated weight functions have unique names"""
+        grid = dv.Grid(shape=(3, 3), extent=(10., 10.))
+        x, y = grid.dimensions
+        geom, skin = setup_geom(0, grid)
+        f, group = setup_f('vector', grid)
+        basis_map = {func: Basis(func.name, grid.dimensions, func.space_order)
+                     for func in group.funcs}
+
+        subs_x = Substitution(group.funcs[0].dx, group, basis_map,
+                              'expand', skin)
+        subs_y = Substitution(group.funcs[1].dy, group, basis_map,
+                              'expand', skin)
+
+        wnames_x = [f.name for f in subs_x.wfuncs]
+        wnames_y = [f.name for f in subs_y.wfuncs]
+
+        # These two sets of names should have no overlap (no reused names)
+
+        assert len(set(wnames_x).intersection(wnames_y)) == 0
+
     def test_fill_weights_coverage(self):
         """Check that the stencils get filled everywhere"""
         subs = weights_test_setup()
@@ -232,28 +253,26 @@ class TestSubstitution:
     def test_returned_expr(self):
         """Check that the correct expression is returned"""
         subs = weights_test_setup()
-        ans = 'f(t, x, y)*w_f_dy2_0_0(x, y) ' \
-            + '+ f(t, x, y - 2*h_y)*w_f_dy2_0_m2(x, y) ' \
-            + '+ f(t, x, y - h_y)*w_f_dy2_0_m1(x, y) ' \
-            + '+ f(t, x, y + h_y)*w_f_dy2_0_1(x, y) ' \
-            + '+ f(t, x, y + 2*h_y)*w_f_dy2_0_2(x, y) ' \
-            + '+ f(t, x - 2*h_x, y)*w_f_dy2_m2_0(x, y) ' \
-            + '+ f(t, x - 2*h_x, y - h_y)*w_f_dy2_m2_m1(x, y) ' \
-            + '+ f(t, x - 2*h_x, y + h_y)*w_f_dy2_m2_1(x, y) ' \
-            + '+ f(t, x - h_x, y)*w_f_dy2_m1_0(x, y) ' \
-            + '+ f(t, x - h_x, y - 2*h_y)*w_f_dy2_m1_m2(x, y) ' \
-            + '+ f(t, x - h_x, y - h_y)*w_f_dy2_m1_m1(x, y) ' \
-            + '+ f(t, x - h_x, y + h_y)*w_f_dy2_m1_1(x, y) ' \
-            + '+ f(t, x - h_x, y + 2*h_y)*w_f_dy2_m1_2(x, y) ' \
-            + '+ f(t, x + h_x, y)*w_f_dy2_1_0(x, y) ' \
-            + '+ f(t, x + h_x, y - 2*h_y)*w_f_dy2_1_m2(x, y) ' \
-            + '+ f(t, x + h_x, y - h_y)*w_f_dy2_1_m1(x, y) ' \
-            + '+ f(t, x + h_x, y + h_y)*w_f_dy2_1_1(x, y) ' \
-            + '+ f(t, x + h_x, y + 2*h_y)*w_f_dy2_1_2(x, y) ' \
-            + '+ f(t, x + 2*h_x, y)*w_f_dy2_2_0(x, y) ' \
-            + '+ f(t, x + 2*h_x, y - h_y)*w_f_dy2_2_m1(x, y) ' \
-            + '+ f(t, x + 2*h_x, y + h_y)*w_f_dy2_2_1(x, y)'
-
-        print(subs.expr)
+        ans = 'f(t, x, y)*w_f_f_dy2_0_0(x, y) ' \
+            + '+ f(t, x, y - 2*h_y)*w_f_f_dy2_0_m2(x, y) ' \
+            + '+ f(t, x, y - h_y)*w_f_f_dy2_0_m1(x, y) ' \
+            + '+ f(t, x, y + h_y)*w_f_f_dy2_0_1(x, y) ' \
+            + '+ f(t, x, y + 2*h_y)*w_f_f_dy2_0_2(x, y) ' \
+            + '+ f(t, x - 2*h_x, y)*w_f_f_dy2_m2_0(x, y) ' \
+            + '+ f(t, x - 2*h_x, y - h_y)*w_f_f_dy2_m2_m1(x, y) ' \
+            + '+ f(t, x - 2*h_x, y + h_y)*w_f_f_dy2_m2_1(x, y) ' \
+            + '+ f(t, x - h_x, y)*w_f_f_dy2_m1_0(x, y) ' \
+            + '+ f(t, x - h_x, y - 2*h_y)*w_f_f_dy2_m1_m2(x, y) ' \
+            + '+ f(t, x - h_x, y - h_y)*w_f_f_dy2_m1_m1(x, y) ' \
+            + '+ f(t, x - h_x, y + h_y)*w_f_f_dy2_m1_1(x, y) ' \
+            + '+ f(t, x - h_x, y + 2*h_y)*w_f_f_dy2_m1_2(x, y) ' \
+            + '+ f(t, x + h_x, y)*w_f_f_dy2_1_0(x, y) ' \
+            + '+ f(t, x + h_x, y - 2*h_y)*w_f_f_dy2_1_m2(x, y) ' \
+            + '+ f(t, x + h_x, y - h_y)*w_f_f_dy2_1_m1(x, y) ' \
+            + '+ f(t, x + h_x, y + h_y)*w_f_f_dy2_1_1(x, y) ' \
+            + '+ f(t, x + h_x, y + 2*h_y)*w_f_f_dy2_1_2(x, y) ' \
+            + '+ f(t, x + 2*h_x, y)*w_f_f_dy2_2_0(x, y) ' \
+            + '+ f(t, x + 2*h_x, y - h_y)*w_f_f_dy2_2_m1(x, y) ' \
+            + '+ f(t, x + 2*h_x, y + h_y)*w_f_f_dy2_2_1(x, y)'
 
         assert str(subs.expr) == ans

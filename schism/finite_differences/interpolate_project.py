@@ -11,7 +11,7 @@ from devito.tools.data_structures import frozendict
 from schism.basic import row_from_expr
 from schism.geometry.support_region import get_points_and_oob
 from schism.geometry.skin import stencil_footprint
-from schism.finite_differences.tools import get_sten_vector
+from schism.finite_differences.tools import get_sten_vector, extract_values
 
 
 class MultiInterpolant:
@@ -283,15 +283,30 @@ class Interpolant:
 
         pos = tuple(pos)
 
+        # For variable coefficient evaluation, we also need the physical
+        # locations of the modified points. Convert from indices to physical
+        # space
+        phys_loc = tuple([ind*spa for ind, spa
+                          in zip(bp, self.geometry.grid.spacing)])
+
         submats = []
         vecs = []  # RHS vectors (zero for now)
         for bc in self.group.conditions:
+            # Get any placeholder coefficients
+            coeff_placeholders = bc.coeff_placeholders
+            if len(coeff_placeholders) != 0:
+                expr_map = bc.expr_map
+                coeffs = extract_values(self.geometry.grid, coeff_placeholders,
+                                        expr_map, phys_loc)
+            else:
+                coeffs = ()
             # Note, the first two axes will need swapping in due course
             submat = np.zeros((nterms, nsten, nmod))
             # Substitute the basis funcs into the boundary condition
             expr = bc.sub_basis(self.basis_map)
-            rowfunc = row_from_expr(expr, self.group.funcs, self.basis_map)
-            submat[:, self.boundary_mask] = rowfunc(*pos)
+            rowfunc = row_from_expr(expr, self.group.funcs, self.basis_map,
+                                    additional_params=coeff_placeholders)
+            submat[:, self.boundary_mask] = rowfunc(*pos, *coeffs)
             submats.append(submat)
 
             # Filling the RHS with zeros for now
@@ -339,39 +354,6 @@ class Interpolant:
         have rank sufficient to yield a unique pseudoinverse.
         """
         of_rank = self._matrix[self._rank_mask]
-        """
-        # FIXME: this is a horrible hack
-        # FIXME: really needs tidying up and making better
-        grid = self.geometry.grid
-        dims = grid.dimensions
-        dim_sub = {dim: 0 for dim in dims}
-
-        dist_squared = []
-        for f in self.interior_vector:
-            dist_squared.append(sum([float(ind.subs(dim_sub))**2
-                                for ind in f.indices[1:]]))
-        dist = np.sqrt(dist_squared)
-        min_weight = 0.1
-        weights = 1 - (1-min_weight)*(dist/np.amax(dist))
-        print(weights)
-
-        # n_interior = self.interior_vector.shape[0]
-        n_boundary = sum(v.shape[0] for v in self.boundary_vectors)
-
-        # w_vec = np.concatenate((np.full(n_interior, 1),
-        #                         np.full(n_boundary, 1)))
-        w_vec = np.concatenate((weights,
-                                np.full(n_boundary, 10)))
-        w = np.diag(w_vec)
-
-        of_rank_T = of_rank.transpose((0, 2, 1))
-
-        # Left half of the equation (inside the inverse)
-        left = np.matmul(of_rank_T, np.matmul(w, of_rank))
-        inv = np.linalg.inv(left)
-        right = np.matmul(of_rank_T, w)
-        self._pinv = np.matmul(inv, right)
-        """
         self._pinv = np.linalg.pinv(of_rank)
 
     def project(self, projection):

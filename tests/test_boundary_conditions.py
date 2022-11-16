@@ -118,6 +118,7 @@ class TestBC:
     g = dv.Function(name='g', grid=grid, space_order=2)
     h = dv.TimeFunction(name='h', grid=grid, space_order=2)
     v = dv.VectorTimeFunction(name='v', grid=grid, space_order=2)
+    n = dv.VectorFunction(name='n', grid=grid, space_order=2)
     tau = dv.TensorTimeFunction(name='tau', grid=grid)
 
     @pytest.mark.parametrize('bc, funcs, ans',
@@ -192,7 +193,21 @@ class TestBC:
                               (dv.Eq(f.dx2, 0), {f: basisfx}, 'd_f_x(2,)'),
                               (dv.Eq(f.dy2, 0), {f: basisfy}, 'd_f_y(2,)'),
                               (dv.Eq(f.dxdy, 0), {f: basisf2D},
-                               'd_f_2d(1, 1)')])
+                               'd_f_2d(1, 1)'),
+                              (dv.Eq(g*f, 0), {f: basisf2D},
+                               'coeff_0*(x**2*d_f_2d(2, 0) '
+                               + '+ 2*x*y*d_f_2d(1, 1) + 2*x*d_f_2d(1, 0) '
+                               + '+ y**2*d_f_2d(0, 2) + 2*y*d_f_2d(0, 1) '
+                               + '+ 2*d_f_2d(0, 0))/2'),
+                              (dv.Eq(n.dot(v), 0),
+                               {v[0]: basisvx, v[1]: basisvy},
+                               'coeff_0*(x**2*d_vx(2, 0) + 2*x*y*d_vx(1, 1) '
+                               + '+ 2*x*d_vx(1, 0) + y**2*d_vx(0, 2) '
+                               + '+ 2*y*d_vx(0, 1) + 2*d_vx(0, 0))/2 '
+                               + '+ coeff_1*(x**2*d_vy(2, 0) '
+                               + '+ 2*x*y*d_vy(1, 1) + 2*x*d_vy(1, 0) '
+                               + '+ y**2*d_vy(0, 2) + 2*y*d_vy(0, 1) '
+                               + '+ 2*d_vy(0, 0))/2')])
     def test_basis_substitution(self, bc, basis_map, ans):
         """
         Check that substituting basis functions in yields the correct
@@ -200,7 +215,69 @@ class TestBC:
         """
         condition = SingleCondition(bc)
         expr = condition.sub_basis(basis_map)
+        print(expr)
         assert str(expr) == ans
+
+    @pytest.mark.parametrize('bc, funcs',
+                             [(dv.Eq(f, 0), None),
+                              (dv.Eq(dv.div(v), 0), None),
+                              (dv.Eq(n[0]*tau[0, 0] + n[1]*tau[0, 1], 0),
+                               None),
+                              (dv.Eq(v[0]*tau[0, 0] + v[1]*tau[0, 1], 0),
+                               (tau[0, 0], tau[0, 1])),
+                              (dv.Eq(v[0]*tau[0, 0] + v[1]*tau[0, 1], 0),
+                               (f, tau[0, 0], tau[0, 1])),
+                              (dv.Eq(f+g, 0), (f, g)),
+                              (dv.Eq(dv.div(v), 0),
+                               (v[0], v[1], f, g)),
+                              (dv.Eq(f.laplace, 0), None),
+                              (dv.Eq(3*f+2*f.dx+f.dx2+2*g*f.dy+f.dy2, 0),
+                               None),
+                              (dv.Eq(3*f+(2+g)*f.dx+f.dx2+2*f.dy+(g+5)*f.dy2,
+                                     0), None),
+                              (dv.Eq(f*g), (f,)),
+                              (dv.Eq(2*f), None)])
+    def test_coefficient_replacement(self, bc, funcs):
+        """
+        Check that function coefficients are correctly replaced with symbols
+        as necessary.
+        """
+        condition = SingleCondition(bc, funcs=funcs)
+        # Check that if we substitute the placeholders for their expressions,
+        # we get our original LHS
+        check = sp.simplify(condition.lhs
+                            - condition._mod_lhs.subs(condition.expr_map))
+
+        assert check == 0
+
+    @pytest.mark.parametrize('bc, g', [(dv.Eq(f+g), g), (dv.Eq(g*f.dx+g), g),
+                                       (dv.Eq(f+g+1), g), (dv.Eq(g*(f+1)), g)])
+    def test_variable_purging(self, bc, g):
+        """
+        Check that all variable coefficients are purged during the coefficient
+        replacement process.
+        """
+        # Need to pass in g to check it has been purged
+        condition = SingleCondition(bc)
+
+        # Check that g has been purged from equations
+        assert g not in condition._mod_lhs.find(dv.Function)
+        # Check that g is present in expr_map
+        for item in condition.expr_map.values():
+            assert g in item.find(dv.Function)
+
+    @pytest.mark.parametrize('bc, ans',
+                             [(dv.Eq(f+1), [1]),
+                              (dv.Eq(f+g), [g]),
+                              (dv.Eq(f+g+1), [1, g])])
+    def test_rhs_args(self, bc, ans):
+        """
+        Check that terms that should be moved to the RHS are correctly
+        collected.
+        """
+        condition = SingleCondition(bc)
+
+        assert set(condition._rhs_args) == set(ans)
 
 
 class TestGroup:

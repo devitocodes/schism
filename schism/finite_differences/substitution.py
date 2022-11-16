@@ -151,7 +151,9 @@ class Substitution:
                 underscores = ['_' for d in range(ndims)]
                 indices_str = [str(i) for i in indices]
                 index = list(chain(*zip(underscores, indices_str)))
-                name = 'w_' + item.name + '_d' + deriv_tag
+                # Name of the function for which derivs are being taken
+                expr_name = '_' + self.deriv.expr.name
+                name = 'w_' + item.name + expr_name + '_d' + deriv_tag
                 # Swap minus signs for m in identifier
                 id = ''.join(index).replace('-', 'm')
                 name += id

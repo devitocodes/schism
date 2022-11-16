@@ -34,8 +34,8 @@ class SingleCondition:
         Dimensions in which derivatives are taken within the boundary condition
     coeff_placeholders : tuple
         Placeholders used to replace coefficients in the LHS expression
-    coeff_map : dict
-        Map between coeffcient placeholders and their expressions within the
+    expr_map : dict
+        Map between coefficient placeholders and their expressions within the
         LHS expression
 
     Methods
@@ -52,9 +52,10 @@ class SingleCondition:
         self._get_functions(funcs)
         # Get the dimensions in which derivatives are taken
         self._get_derivative_dimensions()
-        # Substitute the coefficients in the expression
-        # Note: needs to complain if a function found in the expression
-        # TODO: Finish this
+        # Parse the lhs and determine the coefficients
+        self._parse_lhs()
+        # Create a master list of coefficient placeholders
+        self._coeff_placeholders = tuple(self.expr_map.keys())
 
     def __eq__(self, other):
         lhs_equal = self.lhs - other.lhs == 0
@@ -69,6 +70,71 @@ class SingleCondition:
 
     def __repr__(self):
         return "SingleCondition({})".format(str(self.equation))
+
+    def _parse_lhs(self):
+        """
+        Parse and process the LHS of the equation. Replace any non-constant
+        coefficients with placeholder symbols.
+        """
+        self._expr_map = {}
+        coeff_inc = 0
+        self._rhs_args = []  # Args to be moved to RHS, for example 1 in f+1
+
+        # Expansion necessary to avoid expressions which should be Add being
+        # disguised as Mul. For example g*(f+1) -> g*f + g.
+        exp_lhs = sp.expand(self.lhs)
+        if isinstance(exp_lhs, dv.Function):
+            self._mod_lhs = self.lhs  # No coefficients to substitute
+        elif isinstance(exp_lhs, dv.Derivative):
+            self._mod_lhs = self.lhs  # No coefficients to substitute
+        elif isinstance(exp_lhs, sp.Mul):
+            # LHS is some function/derivative with a coefficient
+            derivs = self.lhs.find(dv.Derivative)
+            funcs = self.lhs.find(dv.Function).intersection(set(self.funcs))
+            derivs_funcs = tuple(derivs.union(funcs))
+
+            mod_args = []
+            # May loop more than once if LHS is a derivative
+            for item in derivs_funcs:
+                coeff = self.lhs.coeff(item)
+                if not isinstance(coeff, sp.core.numbers.Number):
+                    coeff_sym = sp.Symbol('coeff_' + str(coeff_inc))
+                    coeff_inc += 1  # Increment the coefficient labels
+                    self._expr_map[coeff_sym] = coeff
+                    mod_args.append(coeff_sym*item)
+                else:
+                    mod_args.append(coeff*item)
+            self._mod_lhs = sum(mod_args)
+        elif isinstance(exp_lhs, sp.Add):
+            # LHS contains a bunch of Functions, Derivatives, and coefficients
+            args = exp_lhs._args
+            mod_args = list(args)  # Will modifiy entries in this list
+            for i in range(len(mod_args)):
+                arg = mod_args[i]  # Doesn't actually acess directly
+                derivs = arg.find(dv.Derivative)
+                funcs = arg.find(dv.Function).intersection(set(self.funcs))
+                derivs_funcs = tuple(derivs.union(funcs))
+                # Would generally only expect this to loop if the arg contains
+                # a derivative
+                item_args = []
+                for item in derivs_funcs:
+                    coeff = arg.coeff(item)
+                    # If we do have a number, then don't change the arg
+                    if not isinstance(coeff, sp.core.numbers.Number):
+                        coeff_sym = sp.Symbol('coeff_' + str(coeff_inc))
+                        coeff_inc += 1  # Increment the coefficient labels
+                        self._expr_map[coeff_sym] = coeff
+                        item_args.append(coeff_sym*item)
+                if len(derivs_funcs) == 0:
+                    # Argument belongs on rhs and should be moved there in due
+                    # course
+                    self._rhs_args.append(arg)
+                    mod_args[i] = 0  # Remove such terms
+                if len(item_args) != 0:  # If I have coefficients to modify
+                    mod_args[i] = sum(item_args)  # Overwrite current arg
+            self._mod_lhs = sum(mod_args)
+        else:
+            raise TypeError("LHS of unhandled type")
 
     def _parse_rhs(self):
         """Parse and process the RHS of the equation"""
@@ -125,8 +191,9 @@ class SingleCondition:
         Substitute functions in the boundary condition for their respective
         basis functions.
         """
+        # FIXME: Needs to act on the modified LHS
         derivs = self.lhs.find(dv.Derivative)
-        funcs = self.lhs.find(dv.Function)
+        funcs = self.lhs.find(dv.Function).intersection(set(self.funcs))
         reps = {}
         for func in funcs:
             try:
@@ -149,7 +216,7 @@ class SingleCondition:
             b_derivs = tuple([(deriv.dims[i], d_o[i])
                               for i in range(len(deriv.dims))])
             reps[deriv] = basis.deriv(b_derivs)
-        return sp.simplify(self.lhs.subs(reps))
+        return sp.simplify(self._mod_lhs.subs(reps))
 
     @property
     def equation(self):
@@ -175,6 +242,18 @@ class SingleCondition:
     def dims(self):
         """Dimensions in which derivatives are taken"""
         return self._dims
+
+    @property
+    def expr_map(self):
+        """
+        Mapping between coefficient symbols and the expressions they replace.
+        """
+        return frozendict(self._expr_map)
+
+    @property
+    def coeff_placeholders(self):
+        """Placeholder symbols used to replace coefficients"""
+        return self._coeff_placeholders
 
 
 class ConditionGroup:
