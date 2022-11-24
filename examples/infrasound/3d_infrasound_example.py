@@ -9,19 +9,20 @@ import matplotlib.pyplot as plt
 
 from model import InfrasoundModel
 from propagator import InfrasoundPropagator
+from plotting import plot_st_helens
 
-src_coords = np.array([4800., 4800., 2550.])[np.newaxis, :]
-rec_coords = np.array([[2400., 2400., 1275.],
-                       [7200., 2400., 1275.],
-                       [2400., 7200., 1275.],
-                       [7200., 7200., 1275.],
-                       [2400., 2400., 3825.],
-                       [7200., 2400., 3825.],
-                       [2400., 7200., 3825.],
-                       [7200., 7200., 3825.]])
+src_coords = np.array([4800., 4800., 2250.])[np.newaxis, :]
+rec_coords = np.array([[4800., 1400., 1400.],
+                       [8200., 4800., 1500.],
+                       [1400., 4800., 1500.],
+                       [4800., 8200., 1650.],
+                       [2400., 2400., 1400.],
+                       [7200., 2400., 1500.],
+                       [2400., 7200., 1550.],
+                       [7200., 7200., 1500.]])
 
 # Original time is 13s
-t0, tn, dt = 0., 6., 0.021  # Courant number ~0.25
+t0, tn, dt = 0., 14., 0.021  # Courant number ~0.25
 src_f = 1.
 
 sdf_data = -np.load('surface_files/mt_st_helens_3d.npy')
@@ -48,10 +49,17 @@ plt.imshow(model.p.data[-1, xmid].T, origin='lower', extent=plt_ext)
 plt.colorbar()
 plt.show()
 
-"""
-print(np.linalg.norm(model.rec.data[:, 0]))
-plt.plot(model.rec.data[:, 0])
+plt.imshow(model.p.data[-1, :, xmid].T, origin='lower', extent=plt_ext)
+plt.colorbar()
 plt.show()
+
+plot_st_helens(model.p.data[-1], src_coords, rec_coords,
+               np.array([-4800., -4800., 0.]), (30, 30, 30))
+
+for i in range(rec_coords.shape[0]):
+    print(np.linalg.norm(model.rec.data[:, i]))
+    plt.plot(model.rec.data[:, i])
+    plt.show()
 
 # Next step is backpropagation
 # Reset the fields
@@ -74,7 +82,17 @@ plt.imshow(model.p.data[-1, xmid].T, origin='lower', extent=plt_ext)
 plt.colorbar()
 plt.show()
 
+plt.imshow(model.p.data[-1, :, xmid].T, origin='lower', extent=plt_ext)
+plt.colorbar()
+plt.show()
+
 plt.imshow(model.zsc.data[-1, xmid].T, origin='lower', extent=plt_ext)
 plt.colorbar()
 plt.show()
-"""
+
+plt.imshow(model.zsc.data[-1, :, xmid].T, origin='lower', extent=plt_ext)
+plt.colorbar()
+plt.show()
+
+plot_st_helens(model.zsc.data[-1], src_coords, rec_coords,
+               np.array([-4800., -4800., 0.]), (30, 30, 30))
