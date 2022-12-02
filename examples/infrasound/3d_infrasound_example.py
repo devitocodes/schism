@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 from model import InfrasoundModel
 from propagator import InfrasoundPropagator
-from plotting import plot_st_helens
+from plotting import plot_st_helens, plot_top_down
 
 src_coords = np.array([4800., 4800., 2250.])[np.newaxis, :]
 rec_coords = np.array([[4800., 1400., 1400.],
@@ -21,8 +21,8 @@ rec_coords = np.array([[4800., 1400., 1400.],
                        [2400., 7200., 1550.],
                        [7200., 7200., 1500.]])
 
-# Original time is 13s
-t0, tn, dt = 0., 14., 0.021  # Courant number ~0.25
+# Original time is 14s
+t0, tn, dt = 0., 3., 0.021  # Courant number ~0.25
 src_f = 1.
 
 sdf_data = -np.load('surface_files/mt_st_helens_3d.npy')
@@ -34,7 +34,7 @@ plt.colorbar()
 plt.show()
 model = InfrasoundModel(dims=3, shape=(321, 321, 171),
                         extent=(9600., 9600., 5100.),
-                        space_order=2,
+                        space_order=4,
                         src_coords=src_coords, rec_coords=rec_coords,
                         t0=t0, tn=tn, dt=dt, src_f=src_f, sdf_data=sdf_data,
                         boundary=True)
@@ -96,3 +96,5 @@ plt.show()
 
 plot_st_helens(model.zsc.data[-1], src_coords, rec_coords,
                np.array([-4800., -4800., 0.]), (30, 30, 30))
+
+plot_top_down(model.zsc.data[-1], -4800., 4800., -4800., 4800.)

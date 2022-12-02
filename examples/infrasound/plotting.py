@@ -2,6 +2,7 @@
 
 import pyvista as pv
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def plot_st_helens(data, src_loc, rec_loc, origin, spacing):
@@ -28,8 +29,8 @@ def plot_st_helens(data, src_loc, rec_loc, origin, spacing):
     surface = pv.read("surface_files/mt_st_helens.ply")
 
     plotter = pv.Plotter()
-    plotter.add_mesh(slicex, opacity=0.95)
-    plotter.add_mesh(slicey, opacity=0.95)
+    plotter.add_mesh(slicex, opacity=1.)
+    plotter.add_mesh(slicey, opacity=1.)
     plotter.add_mesh(surface)
 
     for src in src_loc:
@@ -45,23 +46,12 @@ def plot_st_helens(data, src_loc, rec_loc, origin, spacing):
     plotter.show()
 
 
-def main():
-    data = np.random.rand(321, 321, 171)
+def plot_top_down(data, xmin, xmax, ymin, ymax):
+    """Plot a top-down view of the dataset"""
+    extent = (xmin, xmax, ymin, ymax)
+    dmax = np.amax(data, axis=-1)
 
-    origin = np.array([-4800., -4800., 0.])
-    src_loc = np.array([4800., 4800., 2250.])[np.newaxis, :]
-    rec_loc = np.array([[4800., 1400., 1400.],
-                       [8200., 4800., 1500.],
-                       [1400., 4800., 1500.],
-                       [4800., 8200., 1650.],
-                       [2400., 2400., 1400.],
-                       [7200., 2400., 1500.],
-                       [2400., 7200., 1550.],
-                       [7200., 7200., 1500.]])
-
-    spacing = (30, 30, 30)
-    plot_st_helens(data, src_loc, rec_loc, origin, spacing)
-
-
-if __name__ == "__main__":
-    main()
+    plt.imshow(dmax.T, extent=extent, origin='lower')
+    plt.xlabel("E-W (km)")
+    plt.ylabel("N-S (km)")
+    plt.show()
