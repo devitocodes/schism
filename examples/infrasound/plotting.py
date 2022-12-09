@@ -7,22 +7,14 @@ import matplotlib.pyplot as plt
 
 def plot_st_helens(data, src_loc, rec_loc, origin, spacing):
     """Plot a 3D render of slices through a dataset with topography"""
-    # Create the spatial reference
     mesh = pv.UniformGrid()
-
-    # Set the grid dimensions: shape + 1 because we want to inject our values on
-    #   the CELL data
     mesh.dimensions = np.array(data.shape) + 1
-
-    # Edit the spatial reference
-    mesh.origin = origin  # The bottom left corner of the data set
-    mesh.spacing = spacing  # These are the cell sizes along each axis
+    mesh.origin = origin
+    mesh.spacing = spacing
 
     # Add the data values to the cell data
-    mesh.cell_data["values"] = data.flatten(order="F")  # Flatten the array!
+    mesh.cell_data["values"] = data.flatten(order="F")
 
-    # Now plot the grid!
-    # slices = mesh.slice_orthogonal(z=1800)
     slicex = mesh.slice(normal=[1, 0, 0])
     slicey = mesh.slice(normal=[0, 1, 0])
 

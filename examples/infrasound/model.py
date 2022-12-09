@@ -9,7 +9,6 @@ hopefully illustrate one approach by which such a code may be implemented.
 """
 
 import devito as dv
-import sympy as sp
 
 from itertools import product
 from examples.seismic import TimeAxis, RickerSource, Receiver
