@@ -1,3 +1,4 @@
 git+https://github.com/devitocodes/devito@master
 matplotlib
 networkx
+pyvista
