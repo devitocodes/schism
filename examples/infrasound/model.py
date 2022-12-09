@@ -9,6 +9,7 @@ hopefully illustrate one approach by which such a code may be implemented.
 """
 
 import devito as dv
+import sympy as sp
 
 from itertools import product
 from examples.seismic import TimeAxis, RickerSource, Receiver
@@ -219,21 +220,15 @@ class InfrasoundModel:
                                dv.Eq(self.p.dy, 0),
                                dv.Eq(self.p.dz, 0)]
                 elif self.space_order == 4:
-                    # bc_list = [dv.Eq(self.p.dx, 0),
-                    #            dv.Eq(self.p.dy, 0),
-                    #            dv.Eq(self.p.dz, 0),
-                    #            dv.Eq(self.p.dx3 + self.p.dxdy2
-                    #                  + self.p.dxdz2, 0),
-                    #            dv.Eq(self.p.dx2dy + self.p.dy3
-                    #                  + self.p.dydz2, 0),
-                    #            dv.Eq(self.p.dx2dz + self.p.dy2dz
-                    #                  + self.p.dz3, 0)]
                     bc_list = [dv.Eq(self.p.dx, 0),
                                dv.Eq(self.p.dy, 0),
                                dv.Eq(self.p.dz, 0),
-                               dv.Eq(self.p.dx3, 0),
-                               dv.Eq(self.p.dy3, 0),
-                               dv.Eq(self.p.dz3, 0)]
+                               dv.Eq(self.p.dx3 + self.p.dxdy2
+                                     + self.p.dxdz2, 0),
+                               dv.Eq(self.p.dx2dy + self.p.dy3
+                                     + self.p.dydz2, 0),
+                               dv.Eq(self.p.dx2dz + self.p.dy2dz
+                                     + self.p.dz3, 0)]
                 else:
                     errmsg = "Higher-order BCs not yet implemented"
                     raise NotImplementedError(errmsg)

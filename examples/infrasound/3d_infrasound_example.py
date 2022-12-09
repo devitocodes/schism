@@ -1,7 +1,8 @@
 """
 A simple example demonstrating an infrasound propagation simulation with
 topography in 3D. Runs a source localisation method based off of Kim and Lees
-2014 with topography implemented as an immersed boundary.
+2014 with topography implemented as an immersed boundary. Note that the metric
+used is altered for simplicity however.
 """
 
 import numpy as np
@@ -21,9 +22,9 @@ rec_coords = np.array([[4800., 1400., 1400.],
                        [2400., 7200., 1550.],
                        [7200., 7200., 1500.]])
 
-# Original time is 14s
-t0, tn, dt = 0., 3., 0.021  # Courant number ~0.25
-src_f = 1.
+# 16s is plenty
+t0, tn, dt = 0., 26., 0.021  # Courant number ~0.25 (could be increased)
+src_f = 1.  # Source frequency is 1Hz
 
 sdf_data = -np.load('surface_files/mt_st_helens_3d.npy')
 # Plot extent
@@ -85,6 +86,9 @@ plt.show()
 plt.imshow(model.p.data[-1, :, xmid].T, origin='lower', extent=plt_ext)
 plt.colorbar()
 plt.show()
+
+plot_st_helens(model.p.data[-1], src_coords, rec_coords,
+               np.array([-4800., -4800., 0.]), (30, 30, 30))
 
 plt.imshow(model.zsc.data[-1, xmid].T, origin='lower', extent=plt_ext)
 plt.colorbar()
