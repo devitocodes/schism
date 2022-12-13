@@ -78,6 +78,7 @@ def run(sdf, s_o, nsnaps):
 
 
 def plot_snaps(psave_data, shift, sdf):
+    # FIXME: Hardcoded for four snapshots
     # Plot extent
     plt_ext = (0., 9600., 0.-shift*30., 5100.-shift*30.)
 
@@ -86,15 +87,26 @@ def plot_snaps(psave_data, shift, sdf):
     yvals = np.linspace(0.-shift*30., 5100.-shift*30., psave_data.shape[2])
     xmsh, ymsh = np.meshgrid(xvals, yvals, indexing='ij')
 
-    for i in range(1, psave_data.shape[0]):
+    fig, axs = plt.subplots(2, 2, constrained_layout=True, figsize=(9.6, 5.1),
+                            sharex=True, sharey=True)
+
+    for i in range(1, 5):
         vmax = np.amax(np.abs(psave_data[i]))
         vmin = -vmax
-        plt.imshow(psave_data[i].T, origin='lower', extent=plt_ext,
-                   vmax=vmax, vmin=vmin)
-        plt.contour(xmsh, ymsh, sdf.data, [0])
-        plt.xlabel("Distance (m)")
-        plt.ylabel("Elevation (m)")
-        plt.show()
+        if i > 2:
+            j = 1
+        else:
+            j = 0
+        axs[j, (i+1) % 2].imshow(psave_data[i].T, origin='lower',
+                                 extent=plt_ext, vmax=vmax, vmin=vmin,
+                                 cmap='seismic')
+        axs[j, (i+1) % 2].contour(xmsh, ymsh, sdf.data, [0])
+        if j == 1:
+            axs[j, (i+1) % 2].set_xlabel("Distance (m)")
+        if (i+1) % 2 == 0:
+            axs[j, (i+1) % 2].set_ylabel("Elevation (m)")
+        axs[j, (i+1) % 2].set_yticks([-1000., 0., 1000., 2000., 3000.])
+    plt.show()
 
 
 def load_sdf(file, s_o, shift):
