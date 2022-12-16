@@ -11,6 +11,7 @@ discontinuity in impedence.
 import matplotlib.pyplot as plt
 import numpy as np
 import devito as dv
+import pyvista as pv
 import os
 
 from schism import BoundaryGeometry, BoundaryConditions, Boundary
@@ -81,6 +82,10 @@ def run(sdf, s_o, nsnaps):
 
 
 def plot_snaps(psave_data, shift, sdf):
+    """Plot the snapshot"""
+    y_slice = sdf.shape[1]//2
+    # Reduce the snapshots down to fewer dimensions
+    psave_data = psave_data[:, :, y_slice]
     # FIXME: Hardcoded for four snapshots
     # Plot extent
     plt_ext = (0., 9600., 0.-shift*30., 5100.-shift*30.)
@@ -103,13 +108,51 @@ def plot_snaps(psave_data, shift, sdf):
         axs[j, (i+1) % 2].imshow(psave_data[i].T, origin='lower',
                                  extent=plt_ext, vmax=vmax, vmin=vmin,
                                  cmap='seismic')
-        axs[j, (i+1) % 2].contour(xmsh, ymsh, sdf.data, [0])
+        axs[j, (i+1) % 2].contour(xmsh, ymsh, sdf.data[:, y_slice], [0])
         if j == 1:
             axs[j, (i+1) % 2].set_xlabel("Distance (m)")
         if (i+1) % 2 == 0:
             axs[j, (i+1) % 2].set_ylabel("Elevation (m)")
         axs[j, (i+1) % 2].set_yticks([-1000., 0., 1000., 2000., 3000.])
     plt.show()
+
+
+def render_snaps(psave_data, shift):
+    """Make a render of the second-to-last snapshot"""
+    data = psave_data[-2]
+    opacity = (np.abs(data)/np.amax(np.abs(data)))**0.2
+
+    mesh = pv.UniformGrid()
+    mesh.dimensions = np.array(data.shape) + 1
+    # Needed to line up the surface mesh correctly for plotting
+    # This mesh uses the centre of the crater and sea level as reference
+    mesh.origin = (-4800., -4800., -shift*30)
+    mesh.spacing = (30., 30., 30.)
+
+    # Add the data values to the cell data
+    mesh.cell_data["opacity"] = opacity.flatten(order="F")
+    mesh.cell_data["values"] = data.flatten(order="F")
+
+    slicex = mesh.slice(normal=[1, 0, 0])
+    slicey = mesh.slice(normal=[0, 1, 0])
+
+    surface_file = append_path("/../infrasound/surface_files/mt_st_helens.ply")
+    surface = pv.read(surface_file)
+
+    plotter = pv.Plotter()
+    vmax = np.amax(np.abs(data))
+    vmin = -vmax
+    plotter.add_mesh(slicex, opacity='opacity', cmap='seismic', clim=[vmin, vmax])
+    plotter.add_mesh(slicey, opacity='opacity', cmap='seismic', clim=[vmin, vmax])
+    plotter.add_mesh(surface, opacity=0.5, specular=0.2, specular_power=0.2)
+    plotter.remove_scalar_bar()
+    camera_pos = list(plotter.camera.position)
+    camera_pos[1] = -camera_pos[1]
+    camera_pos[2] = 0.75*camera_pos[2]
+    plotter.camera.position = tuple(camera_pos)
+    plotter.camera.zoom(1.3)
+
+    plotter.show(screenshot=append_path("/3D_free_surface_render"))
 
 
 def load_sdf(file, s_o, shift):
@@ -138,7 +181,7 @@ def append_path(file):
 
 def main():
     shift = 50  # Number of grid increments to shift surface
-    s_o = 4  # Space order
+    s_o = 2  # Space order
     # Load the signed distance function data
     sdf_file = "/../infrasound/surface_files/mt_st_helens_3d.npy"
     sdf = load_sdf(sdf_file, s_o, shift)
@@ -151,7 +194,8 @@ def main():
     # If output found then plot it
     try:
         psave_data = np.load(outfile)
-        plot_snaps(psave_data[:, :, 85], shift, sdf[:, 85])
+        plot_snaps(psave_data, shift, sdf)
+        render_snaps(psave_data, shift)
     except FileNotFoundError:
         psave_data = run(sdf, s_o, nsnaps)
         np.save(outfile, psave_data)
