@@ -39,7 +39,6 @@ def run(sdf, s_o, nsnaps):
     derivs = (p.dx2, p.dy2)
     subs = boundary.substitutions(derivs)
 
-    # FIXME: Adjust all these accordingly to scale the model
     c = 0.35  # km/s
 
     t0 = 0.  # Simulation starts a t=0
