@@ -135,6 +135,8 @@ def render_snaps(psave_data, shift):
 
     slicex = mesh.slice(normal=[1, 0, 0])
     slicey = mesh.slice(normal=[0, 1, 0])
+    slicexy = mesh.slice(normal=[1, 1, 0])
+    sliceyx = mesh.slice(normal=[-1, 1, 0])
 
     surface_file = append_path("/../infrasound/surface_files/mt_st_helens.ply")
     surface = pv.read(surface_file)
@@ -144,6 +146,8 @@ def render_snaps(psave_data, shift):
     vmin = -vmax
     plotter.add_mesh(slicex, opacity='opacity', cmap='seismic', clim=[vmin, vmax])
     plotter.add_mesh(slicey, opacity='opacity', cmap='seismic', clim=[vmin, vmax])
+    plotter.add_mesh(slicexy, opacity='opacity', cmap='seismic', clim=[vmin, vmax])
+    plotter.add_mesh(sliceyx, opacity='opacity', cmap='seismic', clim=[vmin, vmax])
     plotter.add_mesh(surface, opacity=0.5, specular=0.2, specular_power=0.2)
     plotter.remove_scalar_bar()
     camera_pos = list(plotter.camera.position)
