@@ -232,7 +232,7 @@ def render_snaps(psave_data, shift):
     plotter.camera.position = tuple(camera_pos)
     plotter.camera.zoom(1.3)
 
-    plotter.show(screenshot=append_path("/3D_free_surface_render"))
+    plotter.show(screenshot=append_path("/3D_free_surface_render_1st_order"))
 
 
 def load_sdf(files, s_o, shift):
@@ -277,7 +277,7 @@ def append_path(file):
 
 def main():
     shift = 50  # Number of grid increments to shift surface
-    s_o = 4  # Space order
+    s_o = 2  # Space order
     # Load the signed distance function data
     sdf_file = "/../infrasound/surface_files/mt_st_helens_3d.npy"
     sdf_file_x = "/../infrasound/surface_files/mt_st_helens_3d_x.npy"
@@ -288,10 +288,10 @@ def main():
                                          'y': sdf_file_y,
                                          'z': sdf_file_z,},
                                         s_o, shift)
-    outfile_p = append_path("/2D_free_surface_snaps_p.npy")
-    outfile_vx = append_path("/2D_free_surface_snaps_vx.npy")
-    outfile_vy = append_path("/2D_free_surface_snaps_vy.npy")
-    outfile_vz = append_path("/2D_free_surface_snaps_vz.npy")
+    outfile_p = append_path("/3D_free_surface_snaps_p.npy")
+    outfile_vx = append_path("/3D_free_surface_snaps_vx.npy")
+    outfile_vy = append_path("/3D_free_surface_snaps_vy.npy")
+    outfile_vz = append_path("/3D_free_surface_snaps_vz.npy")
 
     nsnaps = 4  # Number of snaps
 
@@ -303,7 +303,7 @@ def main():
         vy_snaps = np.load(outfile_vy)
         vz_snaps = np.load(outfile_vz)
         plot_snaps(p_snaps, vx_snaps, vy_snaps, vz_snaps, shift, sdf)
-        render_snaps(psave_data, shift)
+        render_snaps(p_snaps, shift)
     except FileNotFoundError:
         p_snaps, vx_snaps, vy_snaps, vz_snaps = run(sdf, sdf_x,
                                                     sdf_y, sdf_z,
