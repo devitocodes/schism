@@ -16,7 +16,7 @@ from schism.finite_differences.substitution import Substitution
 from schism import BoundaryGeometry, BoundaryConditions
 
 
-def weights_test_setup():
+def weights_test_setup(use_x_derivs=False):
     """Perform setup for the weight tests"""
     # Load the flat 2D sdf
     sdf = read_sdf('horizontal', 2)
@@ -24,8 +24,12 @@ def weights_test_setup():
     bg = BoundaryGeometry(sdf)
     grid = bg.grid
     f = dv.TimeFunction(name='f', grid=grid, space_order=4)
-    # Deriv will be dy2
-    deriv = f.dy2
+    if use_x_derivs:
+        # Use a cross-derivative
+        deriv = f.dxdy
+    else:
+        # Use 2nd derivative wrt y
+        deriv = f.dy2
     # Pressure free-surface bcs
     bcs = BoundaryConditions([dv.Eq(f, 0),
                               dv.Eq(f.dx2+f.dx2, 0),
@@ -276,3 +280,11 @@ class TestSubstitution:
             + '+ f(t, x + 2*h_x, y + h_y)*w_f_f_dy2_2_1(x, y)'
 
         assert str(subs.expr) == ans
+
+    def test_x_derivatives(self):
+        """
+        Check that cross-derivatives produce substitutions in the
+        expected manner
+        """
+        subs = weights_test_setup(use_x_derivs=True)
+        assert False

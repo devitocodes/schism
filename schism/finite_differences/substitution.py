@@ -136,6 +136,11 @@ class Substitution:
 
         wfuncs = []
         weight_map = {}
+
+        # Need to get positions in the stencil that are not in rhs_nonzero
+        # Generate an entry for the footprint, then intersect the sets
+        print(rhs[rhs_nonzero])
+        print(stencil_footprint(self.deriv))
         data_map = {item: np.zeros(grid.shape) for item in rhs[rhs_nonzero]}
         for item in rhs[rhs_nonzero]:
             # Check that the RHS is a Devito Function
@@ -202,12 +207,22 @@ class Substitution:
                 deriv_stagger.append(sp.core.numbers.Zero())
         origin = tuple(deriv_stagger)
 
+        print(self.deriv)
+        print(expr)
+        for key, val in self.data_map.items():
+            print(key)
+
         # P for stencil point, d for dimension
         for p in range(len(footprint[0])):
             ind_subs = {dims[d]: dims[d] + footprint[d][p]*dims[d].spacing
                         for d in range(len(dims))}
 
+            print(ind_subs)
+            print(expr.subs(ind_subs))
+            print()
             wdata = self.data_map[expr.subs(ind_subs)]
+            # Need to add additional functions here as needed
+            # Should this be done on the fly or can it be spotted early?
             wdata[self.geometry.interior_mask[origin]] = interior_stencil[p]
 
     def _fill_modified_weights(self):
