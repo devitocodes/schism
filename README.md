@@ -32,4 +32,4 @@ pip install -e .
 
 If you're using Schism or Devito, we would like to hear from
 you. Whether you are facing issues or just trying it out, join the
-[conversation](https://opesci-slackin.now.sh).
+[conversation](devitocodes.slack.com/).
