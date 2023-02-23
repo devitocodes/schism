@@ -59,6 +59,8 @@ class Boundary:
                 raise TypeError("Substituted derivatives must be of functions")
             skin = ModifiedSkin(deriv, self.geometry)
 
+            print(skin.npts)
+
             group = self._get_filtered_group(deriv)
 
             # Form the basis map given the group of bcs and the derivative

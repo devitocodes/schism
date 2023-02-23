@@ -69,14 +69,26 @@ class ModifiedSkin:
         all_points = tuple([mp[i] for i in range(mp.shape[0])])
 
         # Needs to use the interior mask of the target subgrid
+        # Subgrid targeting needs to use current subgrid offset where
+        # information is not present in the derivative.
+        func_origin = {dim: origin
+                       for dim, origin in zip(self.deriv.expr.dimensions,
+                                              self.deriv.expr.origin)}
         deriv_stagger = []
         for d in range(len(grid.dimensions)):
             try:
                 deriv_stagger.append(self.deriv.x0[grid.dimensions[d]]
                                      - grid.dimensions[d])
             except KeyError:
-                deriv_stagger.append(sp.core.numbers.Zero())
+                # If no info in derivative, use the info of the grid
+                # which the function is discretized onto.
+                deriv_stagger.append(func_origin[grid.dimensions[d]])
+                # deriv_stagger.append(sp.core.numbers.Zero())
         origin = tuple(deriv_stagger)
+        print(origin, {dim: orig
+                       for dim, orig in zip(self.deriv.expr.dimensions,
+                                            self.deriv.expr.origin)})
+        print([type(orig) for orig in self.deriv.expr.origin])
 
         interior_mask = self.geometry.interior_mask[origin][all_points]
         mp = mp[:, interior_mask]

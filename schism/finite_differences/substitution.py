@@ -41,6 +41,12 @@ class Substitution:
         self._skin = skin
         self._geometry = self.skin.geometry
 
+        # Check the number of points in the skin here
+        # Then generate normal stencils with some zero weights
+        # Will want to skip _setup_collections and _get_stencils
+        # _setup_weight_funcs will want to behave differently
+        # _fill_weight_funcs will want to only fill standard weights
+
         self._setup_collections()
         self._get_stencils()
         self._setup_weight_funcs()
@@ -199,6 +205,8 @@ class Substitution:
                 deriv_stagger.append(self.deriv.x0[expr.space_dimensions[d]]
                                      - expr.space_dimensions[d])
             except KeyError:
+                # FIXME: This will also suffer from the same
+                # bug as the one in ModifiedSkin
                 deriv_stagger.append(sp.core.numbers.Zero())
         origin = tuple(deriv_stagger)
 
