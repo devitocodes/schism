@@ -83,7 +83,6 @@ class ModifiedSkin:
                 # If no info in derivative, use the info of the grid
                 # which the function is discretized onto.
                 deriv_stagger.append(func_origin[grid.dimensions[d]])
-                # deriv_stagger.append(sp.core.numbers.Zero())
         origin = tuple(deriv_stagger)
         print(origin, {dim: orig
                        for dim, orig in zip(self.deriv.expr.dimensions,
