@@ -22,6 +22,7 @@ def run(sdf, s_o, nsnaps):
     """Run a forward model if no file found to read"""
     grid = sdf.grid
     bg = BoundaryGeometry(sdf)
+    print("Created BoundaryGeometry")
 
     # Create pressure function
     p = dv.TimeFunction(name='p', grid=grid, space_order=s_o, time_order=2)
@@ -34,11 +35,17 @@ def run(sdf, s_o, nsnaps):
                              + 2*p.dx2dy2 + 2*p.dx2dz2 + 2*p.dy2dz2, 0))
 
     # TODO: add higher-order bcs
+
+    print("Created BC list")
     bcs = BoundaryConditions(bc_list)
+    print("Created BoundaryConditions")
     boundary = Boundary(bcs, bg)
+    print("Created Boundary")
 
     derivs = (p.dx2, p.dy2, p.dz2)
+    print("Started generating stencils")
     subs = boundary.substitutions(derivs)
+    print("Finished generating stencils")
 
     c = 2.5  # km/s
 
@@ -185,7 +192,7 @@ def append_path(file):
 
 def main():
     shift = 50  # Number of grid increments to shift surface
-    s_o = 2  # Space order
+    s_o = 4  # Space order
     # Load the signed distance function data
     sdf_file = "/../infrasound/surface_files/mt_st_helens_3d.npy"
     sdf = load_sdf(sdf_file, s_o, shift)
@@ -202,6 +209,10 @@ def main():
         render_snaps(psave_data, shift)
     except FileNotFoundError:
         psave_data = run(sdf, s_o, nsnaps)
+        print(np.linalg.norm(psave_data[0]))
+        print(np.linalg.norm(psave_data[1]))
+        print(np.linalg.norm(psave_data[2]))
+        print(np.linalg.norm(psave_data[3]))
         np.save(outfile, psave_data)
 
 

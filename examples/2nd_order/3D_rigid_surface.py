@@ -187,7 +187,7 @@ def append_path(file):
 
 def main():
     shift = 20  # Number of grid increments to shift surface
-    s_o = 2  # Space order
+    s_o = 4  # Space order
     # Load the signed distance function data
     sdf_file = "/../infrasound/surface_files/mt_st_helens_3d.npy"
     sdf = load_sdf(sdf_file, s_o, shift)
