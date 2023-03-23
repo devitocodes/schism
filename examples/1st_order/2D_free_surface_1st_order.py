@@ -27,7 +27,8 @@ def run(sdf, sdf_x, sdf_y, s_o, nsnaps):
     zero = sp.core.numbers.Zero()
     # Set cutoff for the velocity subgrids to zero
     # This means that any velocity point on the interior can be updated
-    # This prevents non-physical ripple effects caused by over-extended extrapolations
+    # This prevents non-physical ripple effects caused by over-extended
+    # extrapolations
     # By default, this cutoff is 0.5 (half a grid spacing)
     cutoff = {(h_x/2, zero): 0., (zero, h_y/2): 0.}
 
@@ -42,13 +43,12 @@ def run(sdf, sdf_x, sdf_y, s_o, nsnaps):
 
     bc_list = [dv.Eq(p, 0),  # Zero pressure on free surface
                dv.Eq(p.dx2 + p.dy2, 0),  # Zero laplacian
-               dv.Eq(v[0].dx + v[1].dy, 0)]  # Divergence of velocity equals zero
-               
+               dv.Eq(v[0].dx + v[1].dy, 0)]  # Div v = zero
 
     if s_o >= 4:
         bc_list += [dv.Eq(p.dx4 + 2*p.dx2dy2 + p.dy4, 0),  # Zero biharmonic
                     dv.Eq(v[0].dx3 + v[1].dx2dy
-                          + v[0].dxdy2 + v[1].dy3, 0)] # Laplacian of divergence is zero
+                          + v[0].dxdy2 + v[1].dy3, 0)]  # Laplacian of div = 0
 
     # TODO: add higher-order bcs
     bcs = BoundaryConditions(bc_list)
@@ -93,7 +93,6 @@ def run(sdf, sdf_x, sdf_y, s_o, nsnaps):
     vysave = dv.TimeFunction(name='vysave', grid=grid, time_order=0,
                              save=nsnaps+1, time_dim=t_sub)
 
-    
     # Pressure update
     eq_p = dv.Eq(p.forward, p + dt*rho*c**2*(subs[vxdx] + subs[vydy]))
     # Velocity updates
@@ -106,7 +105,8 @@ def run(sdf, sdf_x, sdf_y, s_o, nsnaps):
 
     src_term = src.inject(field=p.forward, expr=c*src*dt**2)
 
-    op = dv.Operator([eq_vx, eq_vy, eq_p, eq_psave, eq_vxsave, eq_vysave] + src_term)
+    op = dv.Operator([eq_vx, eq_vy, eq_p, eq_psave, eq_vxsave, eq_vysave]
+                     + src_term)
     op(time=time_range.num-1, dt=dt)
 
     return psave.data, vxsave.data, vysave.data
@@ -122,7 +122,8 @@ def plot_snaps(psave_data, vxsave_data, vysave_data, shift, sdf):
     yvals = np.linspace(0.-shift*30., 5100.-shift*30., psave_data.shape[2])
     xmsh, ymsh = np.meshgrid(xvals, yvals, indexing='ij')
 
-    fig, axs = plt.subplots(4, 3, constrained_layout=True, figsize=(9.6*1.5, 5.1*2),
+    fig, axs = plt.subplots(4, 3, constrained_layout=True,
+                            figsize=(9.6*1.5, 5.1*2),
                             sharex=True, sharey=True)
 
     for i in range(1, 5):

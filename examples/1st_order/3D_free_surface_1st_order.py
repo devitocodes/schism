@@ -29,7 +29,8 @@ def run(sdf, sdf_x, sdf_y, sdf_z, s_o, nsnaps):
     zero = sp.core.numbers.Zero()
     # Set cutoff for the velocity subgrids to zero
     # This means that any velocity point on the interior can be updated
-    # This prevents non-physical ripple effects caused by over-extended extrapolations
+    # This prevents non-physical ripple effects caused by over-extended
+    # extrapolations
     # By default, this cutoff is 0.5 (half a grid spacing)
     cutoff = {(h_x/2, zero, zero): 0.,
               (zero, h_y/2, zero): 0.,
@@ -46,15 +47,14 @@ def run(sdf, sdf_x, sdf_y, sdf_z, s_o, nsnaps):
 
     bc_list = [dv.Eq(p, 0),  # Zero pressure on free surface
                dv.Eq(p.dx2 + p.dy2 + p.dz2, 0),  # Zero laplacian
-               dv.Eq(v[0].dx + v[1].dy + v[2].dz, 0)]  # Divergence of velocity equals zero
-               
+               dv.Eq(v[0].dx + v[1].dy + v[2].dz, 0)]  # Div velocity = zero         
 
     if s_o >= 4:
         bc_list += [dv.Eq(p.dx4 + p.dy4 + p.dz4
                           + 2*p.dx2dy2 + 2*p.dx2dz2 + 2*p.dy2dz2, 0),
                     dv.Eq(v[0].dx3 + v[1].dx2dy + v[2].dx2dz + v[0].dxdy2
                           + v[1].dy3 + v[2].dy2dz + v[0].dxdz2 + v[1].dxdz2
-                          + v[2].dz3, 0)] # Laplacian of divergence is zero
+                          + v[2].dz3, 0)]  # Laplacian of divergence is zero
 
     # TODO: add higher-order bcs
     bcs = BoundaryConditions(bc_list)
@@ -102,8 +102,7 @@ def run(sdf, sdf_x, sdf_y, sdf_z, s_o, nsnaps):
                              save=nsnaps+1, time_dim=t_sub)
     vzsave = dv.TimeFunction(name='vzsave', grid=grid, time_order=0,
                              save=nsnaps+1, time_dim=t_sub)
-
-    
+ 
     # Pressure update
     eq_p = dv.Eq(p.forward,
                  p + dt*rho*c**2*(subs[vxdx] + subs[vydy] + subs[vzdz]))
@@ -143,7 +142,8 @@ def plot_snaps(psave_data, vxsave_data, vysave_data, vzsave_data, shift, sdf):
     yvals = np.linspace(0.-shift*30., 5100.-shift*30., psave_data.shape[2])
     xmsh, ymsh = np.meshgrid(xvals, yvals, indexing='ij')
 
-    fig, axs = plt.subplots(4, 4, constrained_layout=True, figsize=(9.6*1.5, 5.1*2),
+    fig, axs = plt.subplots(4, 4, constrained_layout=True,
+                            figsize=(9.6*1.5, 5.1*2),
                             sharex=True, sharey=True)
 
     for i in range(1, 5):
@@ -220,10 +220,14 @@ def render_snaps(psave_data, shift):
     plotter = pv.Plotter()
     vmax = np.amax(np.abs(data))
     vmin = -vmax
-    plotter.add_mesh(slicex, opacity='opacity', cmap='seismic', clim=[vmin, vmax])
-    plotter.add_mesh(slicey, opacity='opacity', cmap='seismic', clim=[vmin, vmax])
-    plotter.add_mesh(slicexy, opacity='opacity', cmap='seismic', clim=[vmin, vmax])
-    plotter.add_mesh(sliceyx, opacity='opacity', cmap='seismic', clim=[vmin, vmax])
+    plotter.add_mesh(slicex, opacity='opacity', cmap='seismic',
+                     clim=[vmin, vmax])
+    plotter.add_mesh(slicey, opacity='opacity', cmap='seismic',
+                     clim=[vmin, vmax])
+    plotter.add_mesh(slicexy, opacity='opacity', cmap='seismic',
+                     clim=[vmin, vmax])
+    plotter.add_mesh(sliceyx, opacity='opacity', cmap='seismic',
+                     clim=[vmin, vmax])
     plotter.add_mesh(surface, opacity=0.5, specular=0.2, specular_power=0.2)
     plotter.remove_scalar_bar()
     camera_pos = list(plotter.camera.position)
@@ -244,7 +248,8 @@ def load_sdf(files, s_o, shift):
         # Move the surface upwards by grid increments
         nx, ny, nz = sdf_data.shape
         fill_vals = np.full((nx, ny, shift), np.amax(sdf_data))
-        sdf_shift = np.concatenate((fill_vals, sdf_data[:, :, :-shift]), axis=2)
+        sdf_shift = np.concatenate((fill_vals, sdf_data[:, :, :-shift]),
+                                   axis=2)
 
         if stagger == 'node':
             # Set up the grid
@@ -286,7 +291,7 @@ def main():
     sdf, sdf_x, sdf_y, sdf_z = load_sdf({'node': sdf_file,
                                          'x': sdf_file_x,
                                          'y': sdf_file_y,
-                                         'z': sdf_file_z,},
+                                         'z': sdf_file_z},
                                         s_o, shift)
     outfile_p = append_path("/3D_free_surface_snaps_p.npy")
     outfile_vx = append_path("/3D_free_surface_snaps_vx.npy")
