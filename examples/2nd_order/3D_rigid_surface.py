@@ -28,7 +28,7 @@ def run(sdf, s_o, nsnaps):
 
     bc_list = [dv.Eq(p.dx, 0),
                dv.Eq(p.dy, 0),
-               dv.Eq(p.dz, 0)] 
+               dv.Eq(p.dz, 0)]
 
     if s_o >= 4:
         bc_list += [dv.Eq(p.dx3 + p.dxdy2 + p.dxdz2, 0),
