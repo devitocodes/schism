@@ -47,18 +47,19 @@ def run(sdf, sdf_x, sdf_y, sdf_z, s_o, nsnaps):
 
     bc_list = [dv.Eq(p, 0),  # Zero pressure on free surface
                dv.Eq(p.dx2 + p.dy2 + p.dz2, 0),  # Zero laplacian
-               dv.Eq(v[0].dx + v[1].dy + v[2].dz, 0)]  # Div velocity = zero         
+               dv.Eq(v[0].dx + v[1].dy + v[2].dz, 0)]  # Div velocity = zero
 
     if s_o >= 4:
         bc_list += [dv.Eq(p.dx4 + p.dy4 + p.dz4
                           + 2*p.dx2dy2 + 2*p.dx2dz2 + 2*p.dy2dz2, 0),
-                    dv.Eq(v[0].dx3 + v[1].dx2dy + v[2].dx2dz + v[0].dxdy2
-                          + v[1].dy3 + v[2].dy2dz + v[0].dxdz2 + v[1].dxdz2
-                          + v[2].dz3, 0)]  # Laplacian of divergence is zero
+                    dv.Eq(v[0].dx3 + v[0].dxdy2 + v[0].dxdz2
+                          + v[1].dx2dy + v[1].dy3 + v[1].dydz2
+                          + v[2].dx2dz + v[2].dy2dz + v[2].dz3,
+                          0)]  # Laplacian of divergence is zero
 
     # TODO: add higher-order bcs
     bcs = BoundaryConditions(bc_list)
-    boundary = Boundary(bcs, bg)
+    boundary = Boundary(bcs, bg, strategy='reduce')
 
     pdx = p.dx(x0=x+x.spacing/2)
     pdy = p.dy(x0=y+y.spacing/2)
@@ -76,7 +77,7 @@ def run(sdf, sdf_x, sdf_y, sdf_z, s_o, nsnaps):
     t0 = 0.  # Simulation starts a t=0
     tn = 1500.  # Simulation last 0.8 seconds (800 ms)
     # Note: grid increment hardcoded, courant number 0.5
-    dt = 0.5*30/c  # Time step from grid spacing
+    dt = 0.3*30/c  # Time step from grid spacing
 
     time_range = TimeAxis(start=t0, stop=tn, step=dt)
 
@@ -85,7 +86,8 @@ def run(sdf, sdf_x, sdf_y, sdf_z, s_o, nsnaps):
                        npoint=1, time_range=time_range)
 
     src.coordinates.data[0, 0] = 4800.
-    src.coordinates.data[0, 1] = 2750.
+    src.coordinates.data[0, 1] = 4800.
+    src.coordinates.data[0, 2] = 2750.
 
     # Set up snapshotting
     steps = src.nt
@@ -102,7 +104,7 @@ def run(sdf, sdf_x, sdf_y, sdf_z, s_o, nsnaps):
                              save=nsnaps+1, time_dim=t_sub)
     vzsave = dv.TimeFunction(name='vzsave', grid=grid, time_order=0,
                              save=nsnaps+1, time_dim=t_sub)
- 
+
     # Pressure update
     eq_p = dv.Eq(p.forward,
                  p + dt*rho*c**2*(subs[vxdx] + subs[vydy] + subs[vzdz]))
@@ -152,7 +154,7 @@ def plot_snaps(psave_data, vxsave_data, vysave_data, vzsave_data, shift, sdf):
         axs[i-1, 0].imshow(psave_data[i].T, origin='lower',
                            extent=plt_ext, vmax=vmax, vmin=vmin,
                            cmap='seismic')
-        axs[i-1, 0].contour(xmsh, ymsh, sdf.data, [0])
+        axs[i-1, 0].contour(xmsh, ymsh, sdf.data[:, y_slice], [0])
         if i == 4:
             axs[i-1, 0].set_xlabel("Distance (m)")
         axs[i-1, 0].set_ylabel("Elevation (m)")
@@ -164,7 +166,7 @@ def plot_snaps(psave_data, vxsave_data, vysave_data, vzsave_data, shift, sdf):
         axs[i-1, 1].imshow(vxsave_data[i].T, origin='lower',
                            extent=plt_ext, vmax=vmax, vmin=vmin,
                            cmap='seismic')
-        axs[i-1, 1].contour(xmsh, ymsh, sdf.data, [0])
+        axs[i-1, 1].contour(xmsh, ymsh, sdf.data[:, y_slice], [0])
         if i == 4:
             axs[i-1, 1].set_xlabel("Distance (m)")
         axs[i-1, 1].set_yticks([-1000., 0., 1000., 2000., 3000.])
@@ -175,7 +177,7 @@ def plot_snaps(psave_data, vxsave_data, vysave_data, vzsave_data, shift, sdf):
         axs[i-1, 2].imshow(vysave_data[i].T, origin='lower',
                            extent=plt_ext, vmax=vmax, vmin=vmin,
                            cmap='seismic')
-        axs[i-1, 2].contour(xmsh, ymsh, sdf.data, [0])
+        axs[i-1, 2].contour(xmsh, ymsh, sdf.data[:, y_slice], [0])
         if i == 4:
             axs[i-1, 2].set_xlabel("Distance (m)")
         axs[i-1, 2].set_yticks([-1000., 0., 1000., 2000., 3000.])
@@ -186,7 +188,7 @@ def plot_snaps(psave_data, vxsave_data, vysave_data, vzsave_data, shift, sdf):
         axs[i-1, 3].imshow(vzsave_data[i].T, origin='lower',
                            extent=plt_ext, vmax=vmax, vmin=vmin,
                            cmap='seismic')
-        axs[i-1, 3].contour(xmsh, ymsh, sdf.data, [0])
+        axs[i-1, 3].contour(xmsh, ymsh, sdf.data[:, y_slice], [0])
         if i == 4:
             axs[i-1, 3].set_xlabel("Distance (m)")
         axs[i-1, 3].set_yticks([-1000., 0., 1000., 2000., 3000.])
@@ -282,7 +284,7 @@ def append_path(file):
 
 def main():
     shift = 50  # Number of grid increments to shift surface
-    s_o = 2  # Space order
+    s_o = 4  # Space order
     # Load the signed distance function data
     sdf_file = "/../infrasound/surface_files/mt_st_helens_3d.npy"
     sdf_file_x = "/../infrasound/surface_files/mt_st_helens_3d_x.npy"
