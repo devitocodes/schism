@@ -5,7 +5,8 @@ import numpy as np
 import devito as dv
 
 from schism.basic import Basis
-from schism.geometry.support_region import SupportRegion
+from schism.geometry.skin import stencil_footprint
+from schism.geometry.support_region import SupportRegion, footprint_union
 
 
 class TestSupport:
@@ -127,3 +128,73 @@ class TestSupport:
                 result = expanded.footprint_map[func][i]
                 check = large_support.footprint_map[func][i]
             assert np.all(result == check)
+
+
+class TestFuncs:
+    """Tests for miscellaneous helper functions"""
+    grid2d = dv.Grid(shape=(11, 11), extent=(10., 10.))
+    f2d = dv.Function(name='f', grid=grid2d, space_order=4)
+    grid3d = dv.Grid(shape=(11, 11, 11), extent=(10., 10., 10.))
+    f3d = dv.Function(name='f', grid=grid3d, space_order=4)
+
+    @pytest.mark.parametrize('deriv1', [f2d.dx, f2d.dy, f2d.dxdy])
+    @pytest.mark.parametrize('deriv2', [f2d.dx, f2d.dy, f2d.dxdy])
+    def test_footprint_union_2d(self, deriv1, deriv2):
+        """
+        Check that unions of stencil footprints are calculated
+        correctly in 2D. Also checks that the generated mask
+        is correct.
+        """
+        fp1 = stencil_footprint(deriv1)
+        fp1 = (fp1[0], fp1[1])
+        fp2 = stencil_footprint(deriv2)
+        fp2 = (fp2[0], fp2[1])
+        union, mask = footprint_union(fp1, fp2)
+
+        # Check that union is correctly calculated
+        test_array_1 = np.zeros((5, 5))
+        test_array_2 = np.zeros((5, 5))
+        test_array_1[union] = 1
+        test_array_2[fp1] = 1
+        test_array_2[fp2] = 1
+        assert np.all(test_array_1 == test_array_2)
+
+        # Check that mask is correctly calculated
+        test_array_3 = np.zeros((5, 5))
+        test_array_4 = np.zeros((5, 5))
+        test_array_3[fp2] = 1
+        masked_coords = (union[0][mask], union[1][mask])
+        test_array_4[masked_coords] = 1
+        assert np.all(test_array_3 == test_array_4)
+
+    @pytest.mark.parametrize('deriv1', [f3d.dx, f3d.dy, f3d.dxdy,
+                                        f3d.dz, f3d.dxdz, f3d.dxdydz])
+    @pytest.mark.parametrize('deriv2', [f3d.dx, f3d.dy, f3d.dxdy,
+                                        f3d.dz, f3d.dxdz, f3d.dxdydz])
+    def test_footprint_union_3d(self, deriv1, deriv2):
+        """
+        Check that unions of stencil footprints are calculated
+        correctly in 3D. Also checks that the generated mask is
+        correct.
+        """
+        fp1 = stencil_footprint(deriv1)
+        fp1 = (fp1[0], fp1[1])
+        fp2 = stencil_footprint(deriv2)
+        fp2 = (fp2[0], fp2[1])
+        union, mask = footprint_union(fp1, fp2)
+
+        # Check that union is correctly calculated
+        test_array_1 = np.zeros((5, 5, 5))
+        test_array_2 = np.zeros((5, 5, 5))
+        test_array_1[union] = 1
+        test_array_2[fp1] = 1
+        test_array_2[fp2] = 1
+        assert np.all(test_array_1 == test_array_2)
+
+        # Check that mask is correctly calculated
+        test_array_3 = np.zeros((5, 5, 5))
+        test_array_4 = np.zeros((5, 5, 5))
+        test_array_3[fp2] = 1
+        masked_coords = (union[0][mask], union[1][mask])
+        test_array_4[masked_coords] = 1
+        assert np.all(test_array_3 == test_array_4)

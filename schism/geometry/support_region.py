@@ -6,6 +6,7 @@ conditions.
 import numpy as np
 from devito.tools.data_structures import frozendict
 from functools import reduce
+from schism.geometry.skin import stencil_footprint
 
 
 def get_points_and_oob(support_points, modified_points, geometry):
@@ -45,6 +46,22 @@ def get_points_and_oob(support_points, modified_points, geometry):
     return points, oob_msk
 
 
+def footprint_union(fp1, fp2):
+    """Get the union of two stencil footprints"""
+    fpa1 = np.array(fp1)
+    fpa2 = np.array(fp2)
+    fp_all = np.concatenate((fpa1, fpa2), axis=-1)
+    fp_union = np.unique(fp_all, axis=-1)
+    # The union footprint
+    footprint = tuple([fp_union[i] for i in range(fp_union.shape[0])])
+    # The mask points of fp2 in union footprint
+    # Compares the coordinates, checks there is a match in all dims,
+    # then sets true where a coordinate from fpa2 is located in
+    # fp_union
+    mask = (fp_union[:, np.newaxis] == fpa2[..., np.newaxis]).all(0).any(0)
+    return footprint, mask
+
+
 class SupportRegion:
     """
     The support region for a set of basis functions.
@@ -73,10 +90,13 @@ class SupportRegion:
     expand_radius(inc)
         Return a support region with an expanded radius
     """
-    def __init__(self, basis_map, radius_map):
+    def __init__(self, basis_map, radius_map, deriv):
         self._basis_map = basis_map
         self._radius_map = radius_map
         self._max_span_func = max(self.radius_map, key=self.radius_map.get)
+
+        # Derivative for footprint of the underlying stencil
+        self._deriv = deriv
 
         self._get_footprint()
 
@@ -99,6 +119,17 @@ class SupportRegion:
                 # 1D basis
                 footprint = self._get_linear_support(func)
             footprints[func] = footprint
+
+            if func is self.deriv.expr:
+                base_footprint = self._get_base_support()
+                # Get union with support region of interior
+                # stencil. This prevents issues when interior
+                # stencils have a larger footprint than that
+                # used for extrapolation.
+                union, mask = footprint_union(base_footprint,
+                                              footprints[func])
+                footprints[func] = union
+                # TODO: need to store mask somewhere for later use
             npts_map[func] = footprint[0].shape[0]
         self._footprint_map = frozendict(footprints)
         self._npts_map = frozendict(npts_map)
@@ -135,6 +166,11 @@ class SupportRegion:
             else:  # No offset in other dimensions
                 footprint.append(np.zeros(1+2*radius, dtype=int))
         return tuple(footprint)
+    
+    def _get_base_support(self):
+        """Get the footprint of the interior stencil"""
+        footprint = stencil_footprint(self.deriv)
+        return footprint
 
     def expand_radius(self, inc):
         """
@@ -184,3 +220,10 @@ class SupportRegion:
         regions.
         """
         return self._npts_map
+
+    @property
+    def deriv(self):
+        """
+        Footprint of the underlying derivative stencil. Used when i
+        """
+        return self._deriv

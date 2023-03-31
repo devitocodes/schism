@@ -77,7 +77,7 @@ class Substitution:
             time = None
         ndims = len(self.geometry.grid.dimensions)
         radius_map = {func: func.space_order//2 for func in self.basis_map}
-        support = SupportRegion(self.basis_map, radius_map)
+        support = SupportRegion(self.basis_map, radius_map, self.deriv)
         interpolant = Interpolant(support, self.group,
                                   self.basis_map, self.skin.geometry,
                                   self.skin.points, time=time)
