@@ -129,7 +129,7 @@ class SupportRegion:
                 union, mask = footprint_union(base_footprint,
                                               footprints[func])
                 footprints[func] = union
-                # TODO: need to store mask somewhere for later use
+                self._extrapolant_mask = mask
             npts_map[func] = footprint[0].shape[0]
         self._footprint_map = frozendict(footprints)
         self._npts_map = frozendict(npts_map)
@@ -227,3 +227,11 @@ class SupportRegion:
         Footprint of the underlying derivative stencil. Used when i
         """
         return self._deriv
+
+    @property
+    def extrapolant_mask(self):
+        """
+        Return the mask limiting the footprint in the field on which the
+        derivative is taken to that of the extrapolation support region.
+        """
+        return self._extrapolant_mask

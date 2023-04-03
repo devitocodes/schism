@@ -178,7 +178,16 @@ class Interpolant:
             # Support points with stagger
             s_p = tuple([self.support.footprint_map[func][dim] + stagger[dim]
                          for dim in range(len(func.space_dimensions))])
-            submats.append(row_func(*s_p))
+
+            submat = row_func(*s_p)
+            # Only need to apply this mask to submatric for the
+            # field on which derivatives are being taken.
+            if func is self.support.deriv.expr:
+                # Mask for points not in extrapolant
+                mask = np.logical_not(self.support.extrapolant_mask)
+                # Not used in extrapolant, zero these rows
+                submat[:, mask] = 0.
+            submats.append(submat)
         # Will need to do an axis swap in due course
         self._interior_matrix = np.concatenate(submats, axis=1)
 
