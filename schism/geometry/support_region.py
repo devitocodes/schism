@@ -130,7 +130,7 @@ class SupportRegion:
                                               footprints[func])
                 footprints[func] = union
                 self._extrapolant_mask = mask
-            npts_map[func] = footprint[0].shape[0]
+            npts_map[func] = footprints[func][0].shape[0]
         self._footprint_map = frozendict(footprints)
         self._npts_map = frozendict(npts_map)
 

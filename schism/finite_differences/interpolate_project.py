@@ -265,6 +265,13 @@ class Interpolant:
             boundary_msk[in_bounds] = self.geometry.boundary_mask[pts_ib]
 
         # (0 axis is support region points)
+        # Check if func is the derivative function
+        # If so, then extrapolant mask will need applying
+        # Logical and with the boundary mask
+        if func is self.support.deriv.expr:
+            extrapolant_msk = self.support.extrapolant_mask[:, np.newaxis]
+            boundary_msk = np.logical_and(extrapolant_msk,
+                                          boundary_msk)
         self._boundary_mask = boundary_msk
 
     def _get_boundary_matrices(self):
