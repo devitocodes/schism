@@ -74,6 +74,10 @@ class SupportRegion:
         Mapping between functions and the radius of their basis. Note that this
         is not a true radius, so much as a convenient measure of extent
         measured in grid increments.
+    deriv : Derivative
+        The derivative of the underlying stencil. Used to ensure that
+        the resultant support region is the union of extrapolant and
+        interior stencils.
 
     Attributes
     ----------
@@ -189,7 +193,7 @@ class SupportRegion:
         """
         new_radius_map = {func: rad + inc
                           for func, rad in self.radius_map.items()}
-        return self.__class__(self.basis_map, new_radius_map)
+        return self.__class__(self.basis_map, new_radius_map, self.deriv)
 
     @property
     def basis_map(self):
