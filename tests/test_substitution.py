@@ -281,11 +281,10 @@ class TestSubstitution:
 
         assert str(subs.expr) == ans
 
-    def test_x_derivatives(self):
+    def test_x_deriv_rhs(self):
         """
-        Check that cross-derivatives produce substitutions in the
-        expected manner
+        Check that cross-derivatives produce substitutions with the
+        correct number of terms in the expression.
         """
         subs = weights_test_setup(use_x_derivs=True)
-        # TODO: finish this test
-        # assert False
+        assert len(set(subs.weight_map.keys())) == 25

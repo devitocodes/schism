@@ -131,6 +131,43 @@ class TestSupport:
                 check = large_support.footprint_map[func][i]
             assert np.all(result == check)
 
+    @pytest.mark.parametrize('s_o', [2, 4, 6, 8])
+    def test_cross_deriv_footprint(self, s_o):
+        """
+        Check that footprints with the correct size and shape are
+        generated for cross-derivative stencils.
+        """
+        grid = dv.Grid(shape=(11, 11), extent=(10., 10.))
+        f = dv.TimeFunction(name='f', grid=grid, space_order=s_o)
+        g = dv.TimeFunction(name='g', grid=grid, space_order=s_o)
+
+        basis_map = {f: Basis('f', grid.dimensions, f.space_order),
+                     g: Basis('g', grid.dimensions, g.space_order)}
+
+        radius_map = {f: f.space_order//2, g: g.space_order//2}
+
+        support = SupportRegion(basis_map, radius_map, f.dxdy)
+
+        # Check that support of f is same as f.dxdy
+        f_fp = np.array(support.footprint_map[f])
+        f_fp_check = np.array(stencil_footprint(f.dxdy))
+        assert np.all((f_fp[:, np.newaxis]
+                       == f_fp_check[..., np.newaxis]).all(0).any(0))
+        assert f_fp.shape == f_fp_check.shape
+
+        # Check that support of g is same as for if the derivative
+        # was g.dx
+        check_support = SupportRegion(basis_map, radius_map, g.dx)
+        g_fp = np.array(support.footprint_map[g])
+        g_fp_check = np.array(check_support.footprint_map[g])
+        assert np.all((g_fp[:, np.newaxis]
+                       == g_fp_check[..., np.newaxis]).all(0).any(0))
+        assert g_fp.shape == g_fp_check.shape
+
+        # Check that f_fp masked with extrapolant mask is same size
+        # as g_fp
+        assert f_fp[:, support.extrapolant_mask].shape == g_fp.shape
+
 
 class TestFuncs:
     """Tests for miscellaneous helper functions"""
