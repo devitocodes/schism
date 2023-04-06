@@ -170,7 +170,7 @@ class SupportRegion:
             else:  # No offset in other dimensions
                 footprint.append(np.zeros(1+2*radius, dtype=int))
         return tuple(footprint)
-    
+
     def _get_base_support(self):
         """Get the footprint of the interior stencil"""
         footprint = stencil_footprint(self.deriv)
