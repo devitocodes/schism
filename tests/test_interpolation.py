@@ -115,7 +115,8 @@ def mask_test_setup(setup, func_type):
     radius_map = {func: 1 for func in group.funcs}
 
     # Create a SupportRegion
-    support = SupportRegion(basis_map, radius_map)
+    deriv = f.dx
+    support = SupportRegion(basis_map, radius_map, deriv)
 
     geometry, skin = setup_geom(setup, grid)
 
@@ -154,14 +155,16 @@ class TestInterpolant:
         if basis_dim is None:
             basis_map = {func: Basis(func.name, grid.dimensions, s_o)
                          for func in funcs}
+            deriv = dv.Derivative(funcs[0], grid.dimensions[0])
         else:
             basis_map = {func: Basis(func.name,
                                      (grid.dimensions[basis_dim],),
                                      s_o)
                          for func in funcs}
+            deriv = dv.Derivative(funcs[0], grid.dimensions[basis_dim])
         radius_map = {func: int(s_o//2) for func in funcs}
         # Create a SupportRegion
-        support = SupportRegion(basis_map, radius_map)
+        support = SupportRegion(basis_map, radius_map, deriv)
 
         geometry = DummyGeometry(grid=grid,
                                  interior_mask={origin:
@@ -219,16 +222,18 @@ class TestInterpolant:
         conditions = tuple([SingleCondition(dv.Eq(func, 0)) for func in funcs])
         group = DummyGroup(tuple(funcs), conditions)
         if basis_dim is None:
+            deriv = dv.Derivative(funcs[0], grid.dimensions[0])
             basis_map = {func: Basis(func.name, grid.dimensions, 2)
                          for func in group.funcs}
         else:
+            deriv = dv.Derivative(funcs[0], grid.dimensions[basis_dim])
             basis_map = {func: Basis(func.name,
                                      (grid.dimensions[basis_dim],),
                                      2)
                          for func in group.funcs}
         radius_map = {func: 1 for func in group.funcs}
         # Create a SupportRegion
-        support = SupportRegion(basis_map, radius_map)
+        support = SupportRegion(basis_map, radius_map, deriv)
         geometry = DummyGeometry(grid=grid,
                                  interior_mask={origin:
                                                 np.full(grid.shape, True,
@@ -271,16 +276,20 @@ class TestInterpolant:
             f = dv.TimeFunction(name='f', grid=grid, space_order=s_o)
             conditions = (SingleCondition(dv.Eq(f, 0)),)
             group = DummyGroup((f,), conditions)
+            deriv_func = f
         else:
             f = dv.VectorTimeFunction(name='f', grid=grid, space_order=s_o)
             conditions = (SingleCondition(dv.Eq(f[0], 0)),
                           SingleCondition(dv.Eq(f[1], 0)))
             group = DummyGroup((f[0], f[1]), conditions)
+            deriv_func = f[0]
 
         if basis_dim is None:
+            deriv = dv.Derivative(deriv_func, grid.dimensions[0])
             basis_map = {func: Basis(func.name, grid.dimensions, s_o)
                          for func in group.funcs}
         else:
+            deriv = dv.Derivative(deriv_func, grid.dimensions[basis_dim])
             basis_map = {func: Basis(func.name,
                                      (grid.dimensions[basis_dim],),
                                      s_o)
@@ -289,7 +298,7 @@ class TestInterpolant:
         radius_map = {func: s_o//2 for func in group.funcs}
 
         # Create a SupportRegion
-        support = SupportRegion(basis_map, radius_map)
+        support = SupportRegion(basis_map, radius_map, deriv)
 
         geometry = DummyGeometry(grid=grid,
                                  interior_mask=interior_mask,

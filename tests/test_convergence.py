@@ -138,6 +138,82 @@ class TestScalar:
 
         assert grad <= -s_o
 
+    @pytest.mark.parametrize('s_o', [2, 4, 6])
+    def test_x_deriv_convergence(self, s_o):
+        """
+        Convergence test for cross-derivatives featuring a diagonal
+        boundary.
+        """
+        # Read the diagonal SDF
+        sdf = read_sdf('45', 2)
+        # Create a geometry from it
+        bg = BoundaryGeometry(sdf)
+        origin = (sp.core.numbers.Zero(), sp.core.numbers.Zero())
+        interior_mask = bg.interior_mask[origin]
+        interior_mask = interior_mask[s_o//2:-s_o//2, s_o//2:-s_o//2]
+
+        grid = bg.grid
+
+        f = dv.TimeFunction(name='f', grid=grid, space_order=s_o)
+        # Deriv will be dy2
+        deriv = (f.dxdy,)  # Wants to be tuple
+
+        # Pressure free-surface bcs
+        if s_o == 2:
+            bcs = BoundaryConditions([dv.Eq(f, 0),
+                                      dv.Eq(f.dx2+f.dy2, 0)])
+        elif s_o == 4:
+            bcs = BoundaryConditions([dv.Eq(f, 0),
+                                      dv.Eq(f.dx2+f.dy2, 0),
+                                      dv.Eq(f.dx4 + 2*f.dx2dy2 + f.dy4, 0)])
+        elif s_o == 6:
+            bcs = BoundaryConditions([dv.Eq(f, 0),
+                                      dv.Eq(f.dx2+f.dy2, 0),
+                                      dv.Eq(f.dx4 + 2*f.dx2dy2 + f.dy4, 0),
+                                      dv.Eq(f.dx6 + 3*f.dx4dy2
+                                            + 3*f.dx2dy4 + f.dy6, 0)])
+
+        boundary = Boundary(bcs, bg)
+        subs = boundary.substitutions(deriv)
+
+        # Fill f with sinusoid
+        xinds, yinds = np.meshgrid(np.arange(grid.shape[0]),
+                                   np.arange(grid.shape[1]),
+                                   indexing='ij')
+
+        eq = dv.Eq(f.forward, subs[f.dxdy])
+        op = dv.Operator(eq)
+
+        errs = []
+
+        if s_o == 2 or s_o == 4:
+            refinements = [1, 2, 4, 8, 16]
+        elif s_o == 6:
+            # Tighter range as you hit the noise floor otherwise
+            refinements = [1, 2, 3, 4]
+        for refinement in refinements:
+            f.data[:] = 0  # Reset the data
+            f.data[0] = diag_sinusoid('sin', xinds, yinds,
+                                      refinement*10, deriv=(0, 0))
+            op.apply(time_M=0)
+
+            # Scaling factor
+            # (as I'm expanding the function, not shrinking the grid)
+            err = f.data[-1]*10**2
+            err -= diag_sinusoid('sin', xinds, yinds,
+                                 refinement*10, deriv=(1, 1))
+
+            # Trim off the edges
+            err_trimmed = err[s_o//2:-s_o//2, s_o//2:-s_o//2]
+
+            # Apply the interior mask
+            err_trimmed = err_trimmed[interior_mask]
+            errs.append(float(np.amax(np.abs(err_trimmed))))
+
+        grad = np.polyfit(np.log10(refinements), np.log10(errs), 1)[0]
+
+        assert grad <= -s_o
+
 
 class TestVector:
     @pytest.mark.parametrize('s_o', [2, 4, 6])

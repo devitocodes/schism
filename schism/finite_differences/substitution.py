@@ -41,8 +41,17 @@ class Substitution:
         self._skin = skin
         self._geometry = self.skin.geometry
 
-        self._setup_collections()
-        self._get_stencils()
+        # Check the number of points in the skin here
+        # Then generate normal stencils with some zero weights
+        # Will want to skip _setup_collections and _get_stencils
+        # _setup_weight_funcs will want to behave differently
+        # _fill_weight_funcs will want to only fill standard weights
+
+        # Only need to generate boundary operators if there are
+        # points in the skin to modify
+        if self.skin.npts > 0:
+            self._setup_collections()
+            self._get_stencils()
         self._setup_weight_funcs()
         self._fill_weight_funcs()
         self._form_expression()
@@ -68,7 +77,7 @@ class Substitution:
             time = None
         ndims = len(self.geometry.grid.dimensions)
         radius_map = {func: func.space_order//2 for func in self.basis_map}
-        support = SupportRegion(self.basis_map, radius_map)
+        support = SupportRegion(self.basis_map, radius_map, self.deriv)
         interpolant = Interpolant(support, self.group,
                                   self.basis_map, self.skin.geometry,
                                   self.skin.points, time=time)
@@ -125,10 +134,34 @@ class Substitution:
         deriv_tag = ''.join([d.name+str(o)
                              for d, o in zip(deriv_dims, deriv_order)])
 
-        # Get the interpolant with the largest support region
-        interp = self.interpolants.largest_support
-        rhs = interp.vector
-        rhs_nonzero = rhs != 0
+        # If interpolants have been created, then use the RHS
+        # with the largest support region
+        # Best to check the number of points in the skin
+        if self.skin.npts > 0:
+            # Get the interpolant with the largest support region
+            interp = self.interpolants.largest_support
+            rhs = interp.vector
+            rhs_nonzero = rhs != 0
+            # Points used in the modified stencils
+            sten_points = rhs[rhs_nonzero]
+        else:
+            # Interpolants have not been created
+            expr = self.deriv.expr
+            dims = expr.space_dimensions
+            # Need to get the stencil footprint
+            footprint = stencil_footprint(self.deriv)
+            # Create a term for each point in this
+            # P for stencil point, d for dimension
+            rhs = []
+            for p in range(len(footprint[0])):
+                ind_subs = {dims[d]: dims[d]
+                            + footprint[d][p]*dims[d].spacing
+                            for d in range(len(dims))}
+
+                rhs.append(expr.subs(ind_subs))
+            # Form into a numpy array
+            # Output as sten_points
+            sten_points = np.array(rhs)
 
         grid = self.geometry.grid
         dims = grid.dimensions
@@ -136,8 +169,8 @@ class Substitution:
 
         wfuncs = []
         weight_map = {}
-        data_map = {item: np.zeros(grid.shape) for item in rhs[rhs_nonzero]}
-        for item in rhs[rhs_nonzero]:
+        data_map = {item: np.zeros(grid.shape) for item in sten_points}
+        for item in sten_points:
             # Check that the RHS is a Devito Function
             if isinstance(item, dv.Function):
                 # Turn the offset in space into a tag
@@ -163,7 +196,6 @@ class Substitution:
             else:
                 raise NotImplementedError("Non-Function RHS not implemented")
 
-        self._wfuncs = tuple(wfuncs)
         self._data_map = frozendict(data_map)
         self._weight_map = frozendict(weight_map)
 
@@ -173,7 +205,9 @@ class Substitution:
         respective coefficients.
         """
         self._fill_standard_weights()
-        self._fill_modified_weights()
+        # Only fill modified weights if boundary operators required
+        if self.skin.npts > 0:
+            self._fill_modified_weights()
 
         # Fill weight data from data arrays
         # Can't currently directly fill them due to bug when indexing function
@@ -191,15 +225,23 @@ class Substitution:
 
         expr = self.deriv.expr
         dims = expr.space_dimensions
+        grid = self.geometry.grid
 
         # Needs to use the interior mask of the target subgrid
+        # Subgrid targeting needs to use current subgrid offset where
+        # information is not present in the derivative.
+        func_origin = {dim: origin
+                       for dim, origin in zip(self.deriv.expr.dimensions,
+                                              self.deriv.expr.origin)}
         deriv_stagger = []
         for d in range(len(expr.space_dimensions)):
             try:
                 deriv_stagger.append(self.deriv.x0[expr.space_dimensions[d]]
                                      - expr.space_dimensions[d])
             except KeyError:
-                deriv_stagger.append(sp.core.numbers.Zero())
+                # If no info in derivative, use the info of the grid
+                # which the function is discretized onto.
+                deriv_stagger.append(func_origin[grid.dimensions[d]])
         origin = tuple(deriv_stagger)
 
         # P for stencil point, d for dimension
@@ -317,11 +359,6 @@ class Substitution:
     def projections(self):
         """The collection of Projection objects"""
         return self._projections
-
-    @property
-    def wfuncs(self):
-        """The weight functions"""
-        return self._wfuncs
 
     @property
     def weight_map(self):

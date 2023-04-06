@@ -16,7 +16,7 @@ from schism.finite_differences.substitution import Substitution
 from schism import BoundaryGeometry, BoundaryConditions
 
 
-def weights_test_setup():
+def weights_test_setup(use_x_derivs=False):
     """Perform setup for the weight tests"""
     # Load the flat 2D sdf
     sdf = read_sdf('horizontal', 2)
@@ -24,8 +24,12 @@ def weights_test_setup():
     bg = BoundaryGeometry(sdf)
     grid = bg.grid
     f = dv.TimeFunction(name='f', grid=grid, space_order=4)
-    # Deriv will be dy2
-    deriv = f.dy2
+    if use_x_derivs:
+        # Use a cross-derivative
+        deriv = f.dxdy
+    else:
+        # Use 2nd derivative wrt y
+        deriv = f.dy2
     # Pressure free-surface bcs
     bcs = BoundaryConditions([dv.Eq(f, 0),
                               dv.Eq(f.dx2+f.dx2, 0),
@@ -191,7 +195,7 @@ class TestSubstitution:
 
         substitution = Substitution(deriv, group, basis_map, 'expand', skin)
 
-        wnames = [f.name for f in substitution.wfuncs]
+        wnames = [f.name for f in substitution.weight_map.values()]
         path = os.path.dirname(os.path.abspath(__file__))
         fname = path + '/results/substitution_test_results/' \
             + 'create_weight_function/' + func_type + deriv_type + '.dat'
@@ -216,8 +220,8 @@ class TestSubstitution:
         subs_y = Substitution(group.funcs[1].dy, group, basis_map,
                               'expand', skin)
 
-        wnames_x = [f.name for f in subs_x.wfuncs]
-        wnames_y = [f.name for f in subs_y.wfuncs]
+        wnames_x = [f.name for f in subs_x.weight_map.values()]
+        wnames_y = [f.name for f in subs_y.weight_map.values()]
 
         # These two sets of names should have no overlap (no reused names)
 
@@ -276,3 +280,11 @@ class TestSubstitution:
             + '+ f(t, x + 2*h_x, y + h_y)*w_f_f_dy2_2_1(x, y)'
 
         assert str(subs.expr) == ans
+
+    def test_x_deriv_rhs(self):
+        """
+        Check that cross-derivatives produce substitutions with the
+        correct number of terms in the expression.
+        """
+        subs = weights_test_setup(use_x_derivs=True)
+        assert len(set(subs.weight_map.keys())) == 25
