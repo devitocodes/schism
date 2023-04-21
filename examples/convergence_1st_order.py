@@ -84,7 +84,7 @@ class MainDomain(dv.SubDomain):  # Main section of the grid
     name = 'main'
 
     def __init__(self):
-        super().__init__()            
+        super().__init__()
 
     def define(self, dimensions):
         x, y = dimensions
@@ -104,7 +104,7 @@ def calculate_error(refinement):
                      + str(refinement), 2)
     sdf_y = read_sdf('exact_solution_surface_periodic_base_pad_y_'
                      + str(refinement), 2)
-    
+
     # Use SDF grid
     grid = sdf.grid
 
@@ -126,7 +126,7 @@ def calculate_error(refinement):
     new_grid = dv.Grid(shape=grid.shape, extent=grid.extent,
                        origin=grid.origin, dimensions=grid.dimensions,
                        subdomains=[main_domain])
-    
+
     # Rebuild the SDF on the new grid so we can use these subdomains
     x, y = new_grid.dimensions
     h_x = x.spacing
@@ -151,7 +151,7 @@ def calculate_error(refinement):
 
     bg = BoundaryGeometry((new_sdf, new_sdf_x, new_sdf_y),
                           cutoff=cutoff)
-    
+
     interior_mask = bg.interior_mask[(zero, zero)][4:-4, :-4]
     interior_mask_x = bg.interior_mask[(h_x/2, zero)][4:-4, :-4]
     interior_mask_y = bg.interior_mask[(zero, h_y/2)][4:-4, :-4]
@@ -184,7 +184,7 @@ def calculate_error(refinement):
     # Initialise the zero timestep for pressure
     p.data[:, :, :-4] = np.concatenate((u0[-5:-1], u0, u0[1:5]))
     # Mirror below the zero flux bc
-    p.data[:, :, -4:] = p.data[:, :, -6:-10:-1]  
+    p.data[:, :, -4:] = p.data[:, :, -6:-10:-1]
 
     # Initialise the dt/2 timestep for vx
     v[0].data[:, :, :-4] = np.concatenate((vx0[-5:-1], vx0, vx0[1:5]))
@@ -204,7 +204,7 @@ def calculate_error(refinement):
                dv.Eq(v[0].dx + v[1].dy, 0),
                # Laplacian of divergence is zero
                dv.Eq(v[0].dx3 + v[1].dx2dy
-                 + v[0].dxdy2 + v[1].dy3, 0)]
+                     + v[0].dxdy2 + v[1].dy3, 0)]
 
     bcs = BoundaryConditions(bc_list)
 
@@ -235,17 +235,23 @@ def calculate_error(refinement):
     # Set up periodic BCs
     t = new_grid.stepping_dim
 
-    left_bcs_p = [dv.Eq(p[t+1, i, y], p[t+1, new_grid.shape[0]-9+i, y])
+    left_bcs_p = [dv.Eq(p[t+1, i, y],
+                        p[t+1, new_grid.shape[0]-9+i, y])
                   for i in range(4)]
-    right_bcs_p = [dv.Eq(p[t+1, new_grid.shape[0]-5+i, y], p[t+1, i+4, y])
+    right_bcs_p = [dv.Eq(p[t+1, new_grid.shape[0]-5+i, y],
+                         p[t+1, i+4, y])
                    for i in range(5)]
-    left_bcs_vx = [dv.Eq(v[0][t+1, i, y], v[0][t+1, new_grid.shape[0]-9+i, y])
+    left_bcs_vx = [dv.Eq(v[0][t+1, i, y],
+                         v[0][t+1, new_grid.shape[0]-9+i, y])
                    for i in range(4)]
-    right_bcs_vx = [dv.Eq(v[0][t+1, new_grid.shape[0]-5+i, y], v[0][t+1, i+4, y])
+    right_bcs_vx = [dv.Eq(v[0][t+1, new_grid.shape[0]-5+i, y],
+                          v[0][t+1, i+4, y])
                     for i in range(5)]
-    left_bcs_vy = [dv.Eq(v[1][t+1, i, y], v[1][t+1, new_grid.shape[0]-9+i, y])
+    left_bcs_vy = [dv.Eq(v[1][t+1, i, y],
+                         v[1][t+1, new_grid.shape[0]-9+i, y])
                    for i in range(4)]
-    right_bcs_vy = [dv.Eq(v[1][t+1, new_grid.shape[0]-5+i, y], v[1][t+1, i+4, y])
+    right_bcs_vy = [dv.Eq(v[1][t+1, new_grid.shape[0]-5+i, y],
+                          v[1][t+1, i+4, y])
                     for i in range(5)]
 
     periodic_bcs_p = left_bcs_p + right_bcs_p
