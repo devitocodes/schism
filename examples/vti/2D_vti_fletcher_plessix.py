@@ -5,7 +5,9 @@ where tn is the end time (zero timestep will not be outputted). This
 code will use real-world topography taken from a Digital Elevation Map
 (DEM) of Mt St Helens, USA. The constant material properties ensure all
 reflections are products of the immersed boundary treatment, rather then
-resulting from any discontinuity in impedence.
+resulting from any discontinuity in impedence. Alternatively, the
+formulation of Plessix and Cao 2011 can be used (assuming locally-constant)
+parameters.
 """
 
 import matplotlib.pyplot as plt
@@ -17,7 +19,7 @@ from schism import BoundaryGeometry, BoundaryConditions, Boundary
 from examples.seismic import TimeAxis, RickerSource
 
 
-def run(sdf, s_o, nsnaps):
+def run(sdf, s_o, nsnaps, mode):
     """Run a forward model if no file found to read"""
     grid = sdf.grid
     bg = BoundaryGeometry(sdf)
@@ -65,7 +67,13 @@ def run(sdf, s_o, nsnaps):
 
     v_pn = v_py*dv.sqrt(1+2*de)
     v_px = v_py*dv.sqrt(1+2*ep)
-    v_sy = dv.sqrt(v_py**2*(ep-de)/sig)
+
+    if mode == 'fletcher':
+        v_sy = dv.sqrt(v_py**2*(ep-de)/sig)
+    elif mode == 'plessix':
+        v_sy = 0
+    else:
+        raise ValueError("Unrecognised mode: " + mode)
 
     # Set up snapshotting
     steps = src.nt
@@ -160,11 +168,12 @@ def append_path(file):
 def main():
     shift = 50  # Number of grid increments to shift surface
     s_o = 4  # Space order
+    mode = 'fletcher'  # VTI version (fletcher or plessix)
     # Load the signed distance function data
     sdf_file = "/../infrasound/surface_files/mt_st_helens_2d.npy"
     sdf = load_sdf(sdf_file, s_o, shift)
 
-    outfile = append_path("/2D_vti_fletcher_snaps.npy")
+    outfile = append_path("/2D_vti_" + mode + "_snaps.npy")
 
     nsnaps = 4  # Number of snaps
 
@@ -174,7 +183,7 @@ def main():
         psave_data = np.load(outfile)
         plot_snaps(psave_data, shift, sdf)
     except FileNotFoundError:
-        psave_data = run(sdf, s_o, nsnaps)
+        psave_data = run(sdf, s_o, nsnaps, mode)
         np.save(outfile, psave_data)
 
 
