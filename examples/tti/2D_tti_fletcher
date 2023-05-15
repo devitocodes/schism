@@ -180,7 +180,7 @@ def main():
     sdf_file = "/../infrasound/surface_files/mt_st_helens_2d.npy"
     sdf = load_sdf(sdf_file, s_o, shift)
 
-    outfile = append_path("/2D_vti_fletcher_snaps.npy")
+    outfile = append_path("/2D_tti_fletcher_snaps.npy")
 
     nsnaps = 4  # Number of snaps
 
