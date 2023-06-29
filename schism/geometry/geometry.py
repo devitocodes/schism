@@ -214,7 +214,7 @@ class BoundaryGeometry:
             # Exclude exterior points
             # Check against min(grid.spacing)*eta as anything within
             # this is probably too close anyway
-            mask_inside = sdf.data > min(spacing)*cutoff + _feps
+            mask_inside = sdf.data > min(spacing)*cutoff
             mask_near = np.logical_and(mask_near, mask_inside)
 
             # Set up boundary points in physical space
@@ -238,8 +238,9 @@ class BoundaryGeometry:
             # Check nearest boundary point not in box
             # Errs on the side of caution (cutoff slightly larger
             # according to floating point precision)
+            cutoff_check = (cutoff+_feps)*np.array(spacing)[np.newaxis, :]
             interior = np.any(np.abs(query - bp[i])
-                              > (cutoff+_feps)*np.array(spacing)[np.newaxis, :],
+                              > cutoff_check,
                               axis=1)
 
             # Fill interior mask away from boundary

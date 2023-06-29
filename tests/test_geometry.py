@@ -14,6 +14,7 @@ def read_sdf(surface, dims):
     """Unpickle an sdf"""
     path = os.path.dirname(os.path.abspath(__file__))
     fname = path + '/sdfs/' + surface + '_' + str(dims) + 'd.dat'
+    print(fname)
     with open(fname, 'rb') as f:
         sdf = pickle.load(f)
     return sdf
@@ -275,7 +276,7 @@ class TestBoundaryGeometry:
             check_mask = ymsh < 50
             check_mask_stagger = ymsh < 51
             for origin in bg.interior_mask:
-                if origin == (zero, zero):
+                if origin == (zero, zero) or origin == (zero, h_y/2):
                     check = bg.interior_mask[origin][slices] \
                         == check_mask[slices]
                 else:
