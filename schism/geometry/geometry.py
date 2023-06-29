@@ -236,8 +236,10 @@ class BoundaryGeometry:
             _, i = kdtree.query(query, workers=-1)
 
             # Check nearest boundary point not in box
+            # Errs on the side of caution (cutoff slightly larger
+            # according to floating point precision)
             interior = np.any(np.abs(query - bp[i])
-                              > cutoff*np.array(spacing)[np.newaxis, :],
+                              > (cutoff+_feps)*np.array(spacing)[np.newaxis, :],
                               axis=1)
 
             # Fill interior mask away from boundary
