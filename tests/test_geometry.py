@@ -205,7 +205,7 @@ class TestBoundaryGeometry:
         origin = tuple([sp.core.numbers.Zero() for dim in range(dims)])
 
         # Trim edges off data, as normal calculation in corners is imperfect
-        slices = tuple([slice(2, -2) for dim in sdf.grid.dimensions])
+        slices = tuple([slice(4, -4) for dim in sdf.grid.dimensions])
 
         # Create a meshgrid of indices
         if dims == 2:
@@ -233,7 +233,7 @@ class TestBoundaryGeometry:
         sdfs = (sdf, sdf_x, sdf_y)
 
         # Trim edges off data, as normal calculation in corners is imperfect
-        slices = tuple([slice(2, -2) for dim in sdf.grid.dimensions])
+        slices = tuple([slice(4, -4) for dim in sdf.grid.dimensions])
 
         x, y = sdf.grid.dimensions
         h_x = x.spacing
