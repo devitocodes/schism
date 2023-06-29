@@ -1,13 +1,14 @@
 """
-Simple example implementing a free-surface with Fletcher et al's VTI
-formulation. This code will save four snapshots at intervals of 0.2*tn,
-where tn is the end time (zero timestep will not be outputted). This
-code will use real-world topography taken from a Digital Elevation Map
-(DEM) of Mt St Helens, USA. The constant material properties ensure all
-reflections are products of the immersed boundary treatment, rather then
-resulting from any discontinuity in impedence. Alternatively, the
-formulation of Plessix and Cao 2011 can be used (assuming locally-constant)
-parameters.
+Simple example implementing a free-surface with ether Duveneck/Plessix VTI
+or Fletcher et al's VTI formulation. This code will save four snapshots at
+intervals of 0.2*tn, where tn is the end time (zero timestep will not be
+outputted). This code will use real-world topography taken from a Digital
+Elevation Map (DEM) of Mt St Helens, USA. The constant material properties
+ensure all reflections are products of the immersed boundary treatment,
+rather than resulting from any discontinuity in impedence. Alternatively,
+the formulation of Plessix and Cao 2011 can be used (assuming
+locally-constant) parameters. This is equivelant to the formulation of
+Duveneck et al 2008.
 """
 
 import matplotlib.pyplot as plt

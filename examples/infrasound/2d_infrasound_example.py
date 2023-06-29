@@ -11,9 +11,7 @@ from propagator import InfrasoundPropagator
 
 
 src_coords = np.array([4800., 2250.])[np.newaxis, :]
-# rec_coords = np.array([[2000., 4400.], [7505., 3025.],
-#                        [7200., 1275.], [2150., 3300.],
-#                        [3000., 1000.], [6505, 4500.]])
+
 rec_coords = np.array([[3000., 2250.], [2000., 1800.],
                        [1000., 1600.], [6500., 2300.],
                        [7500., 1800.], [8500, 1500.],
