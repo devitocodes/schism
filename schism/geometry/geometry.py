@@ -8,6 +8,7 @@ import devito as dv
 from schism.utils.environment import get_geometry_feps
 from functools import cached_property
 from devito.tools.data_structures import frozendict
+from scipy.spatial import KDTree
 
 __all__ = ['BoundaryGeometry']
 
@@ -199,25 +200,56 @@ class BoundaryGeometry:
         spacing = self.grid.spacing
         for origin in self.sdf:
             cutoff = self.cutoff[origin]
-            max_dist = np.sqrt(sum([(spacing[dim]*cutoff)**2
-                                    for dim in range(len(dims))]))
+            sdf = self.sdf[origin]
             # Convert h_x/2 to 0.5 etc
             stagger = [float(origin[i].subs(dims[i].spacing, 1))
                        for i in range(len(dims))]
-            # Allows some slack to cope with floating point error
-            # Errs on side of caution
-            masks = [np.abs(self.dense_pos[i] - stagger[i]) > cutoff + _feps
-                     for i in range(len(dims))]
 
-            # Needed to allow sdfs that are flat after some radius
-            # TODO: could drop the abs here I think
-            far = np.abs(self.sdf[origin].data) > max_dist
-            masks.append(far)
-            # Points outside the cutoff
-            not_excluded = np.logical_or.reduce(masks)
-            # On the interior according to the SDF
-            interior = self.sdf[origin].data > 0
-            interior_masks[origin] = np.logical_and(interior, not_excluded)
+            # Pre-select points (with safety factor)
+            # Maximum of grid increment or two times cutoff
+            # (in case cutoff small or zero)
+            # Multiplied by cell diagonal
+            mask_near = sdf.data \
+                < 2*max(cutoff, 0.5)*np.linalg.norm(spacing)
+            # Exclude exterior points
+            # Check against min(grid.spacing)*eta as anything within
+            # this is probably too close anyway
+            mask_inside = sdf.data > min(spacing)*cutoff
+            mask_near = np.logical_and(mask_near, mask_inside)
+
+            # Set up boundary points in physical space
+            # (index + offset)*spacing
+            positions = [np.array(b_ind + b_off[self.boundary_points])*spa
+                         for b_ind, b_off, spa in zip(self.boundary_points,
+                                                      self.dense_pos,
+                                                      spacing)]
+            bp = np.stack(positions, axis=-1)
+
+            # Set up k-d tree
+            kdtree = KDTree(bp)
+            # Set up points to query
+            query_indices = np.where(mask_near)
+            query_points = [(ind+sta)*spa for ind, sta, spa
+                            in zip(query_indices, stagger, spacing)]
+            query = np.stack(query_points, axis=-1)
+            # Query the k-d tree
+            _, i = kdtree.query(query, workers=-1)
+
+            # Check nearest boundary point not in box
+            # Errs on the side of caution (cutoff slightly larger
+            # according to floating point precision)
+            cutoff_check = (cutoff+_feps)*np.array(spacing)[np.newaxis, :]
+            interior = np.any(np.abs(query - bp[i])
+                              > cutoff_check,
+                              axis=1)
+
+            # Fill interior mask away from boundary
+            interior_mask = np.array(sdf.data) \
+                >= 2*max(cutoff, 0.5)*np.linalg.norm(spacing)
+            # Fill interior mask near boundary
+            interior_mask[query_indices] = interior
+
+            interior_masks[origin] = interior_mask
 
         self._interior_mask = frozendict(interior_masks)
 

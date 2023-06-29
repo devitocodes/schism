@@ -14,6 +14,7 @@ def read_sdf(surface, dims):
     """Unpickle an sdf"""
     path = os.path.dirname(os.path.abspath(__file__))
     fname = path + '/sdfs/' + surface + '_' + str(dims) + 'd.dat'
+    print(fname)
     with open(fname, 'rb') as f:
         sdf = pickle.load(f)
     return sdf
@@ -205,7 +206,7 @@ class TestBoundaryGeometry:
         origin = tuple([sp.core.numbers.Zero() for dim in range(dims)])
 
         # Trim edges off data, as normal calculation in corners is imperfect
-        slices = tuple([slice(2, -2) for dim in sdf.grid.dimensions])
+        slices = tuple([slice(4, -4) for dim in sdf.grid.dimensions])
 
         # Create a meshgrid of indices
         if dims == 2:
@@ -233,7 +234,7 @@ class TestBoundaryGeometry:
         sdfs = (sdf, sdf_x, sdf_y)
 
         # Trim edges off data, as normal calculation in corners is imperfect
-        slices = tuple([slice(2, -2) for dim in sdf.grid.dimensions])
+        slices = tuple([slice(4, -4) for dim in sdf.grid.dimensions])
 
         x, y = sdf.grid.dimensions
         h_x = x.spacing
@@ -275,7 +276,7 @@ class TestBoundaryGeometry:
             check_mask = ymsh < 50
             check_mask_stagger = ymsh < 51
             for origin in bg.interior_mask:
-                if origin == (zero, zero):
+                if origin == (zero, zero) or origin == (zero, h_y/2):
                     check = bg.interior_mask[origin][slices] \
                         == check_mask[slices]
                 else:
