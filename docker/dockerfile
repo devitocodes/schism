@@ -1,0 +1,52 @@
+##########################################################
+# This Dockerfile can be used to run the Schism examples #
+##########################################################
+
+# Base image with compilers
+ARG base=devitocodes/bases:cpu-gcc
+
+FROM $base as builder
+
+# Copy Schism
+ADD . /app/schism
+
+# Install pip dependencies
+RUN python3 -m venv /venv && \
+    /venv/bin/pip install --no-cache-dir --upgrade pip && \
+    /venv/bin/pip install --no-cache-dir jupyter && \
+    /venv/bin/pip install --no-cache-dir wheel && \
+    /venv/bin/pip install -r /app/schism/requirements.txt
+
+# Upgrade python in venv
+RUN python3 -m venv --upgrade /venv
+
+# Install Schism as a pip package
+WORKDIR /app/schism
+RUN /venv/bin/pip install --no-cache-dir -e . && \
+    rm -rf ~/.cache/pip
+
+WORKDIR /~
+# Safety cleanup
+RUN apt-get clean && apt-get autoclean && apt-get autoremove && \
+    rm -rf /var/lib/apt/lists/*
+
+FROM $base as user
+
+# Create app user
+# Set the home directory as out app user's home
+ENV HOME=/app
+ENV APP_HOME=/app
+
+RUN mkdir -p /app && groupadd -r app && \
+    useradd -r -g app -d /app -s /sbin/nologin -c "Docker image user" app && \
+    chown -R app:app $APP_HOME
+
+COPY --from=builder --chown=app:app /app /app
+
+# Venv
+COPY --from=builder --chown=app:app /venv /venv
+
+# Change to the app user
+USER app
+
+EXPOSE 8888
