@@ -48,6 +48,22 @@ def run(sdf, s_o, nsnaps):
                dv.Eq(nx*mu*ux.dy + nx*mu*uy.dx
                      + ny*(lam+2*mu)*uy.dy + ny*lam*ux.dx, 0)]
 
+    if s_o >= 4:
+        bc_list.append(dv.Eq(lam*mu*nx*uy.dy3 + mu**2*ny*ux.dy3
+                             + ux.dx2dy*ny*(lam**2 + 2*lam*mu + 2*mu**2)
+                             + ux.dx3*nx*(lam**2 + 4*lam*mu + 4*mu**2)
+                             + ux.dxdy2*nx*(2*lam*mu + 3*mu**2)
+                             + uy.dx2dy*nx*(lam**2 + 3*lam*mu + mu**2)
+                             + uy.dx3*ny*(lam*mu + 2*mu**2)
+                             + uy.dxdy2*ny*(lam**2 + 3*lam*mu + 3*mu**2), 0))
+        bc_list.append(dv.Eq(lam*mu*ny*ux.dx3 + mu**2*nx*uy.dx3
+                             + ux.dx2dy*nx*(lam**2 + 3*lam*mu + 3*mu**2)
+                             + ux.dxdy2*ny*(lam**2 + 3*lam*mu + mu**2)
+                             + ux.dy3*nx*(lam*mu + 2*mu**2)
+                             + uy.dx2dy*ny*(2*lam*mu + 3*mu**2)
+                             + uy.dxdy2*nx*(lam**2 + 2*lam*mu + 2*mu**2)
+                             + uy.dy3*ny*(lam**2 + 4*lam*mu + 4*mu**2), 0))
+
     # TODO: add higher-order bcs
     bcs = BoundaryConditions(bc_list)
     boundary = Boundary(bcs, bg)
@@ -70,7 +86,7 @@ def run(sdf, s_o, nsnaps):
 
     time_range = TimeAxis(start=t0, stop=tn, step=dt)
 
-    f0 = 0.005  # Source peak frequency is 5Hz (0.005 kHz)
+    f0 = 0.0065  # Source peak frequency is 6.5Hz (0.0065 kHz)
     src = RickerSource(name='src', grid=grid, f0=f0,
                        npoint=1, time_range=time_range)
 
@@ -177,7 +193,7 @@ def append_path(file):
 
 def main():
     shift = 50  # Number of grid increments to shift surface
-    s_o = 2  # Space order
+    s_o = 4  # Space order
     # Load the signed distance function data
     sdf_file = "/../infrasound/surface_files/mt_st_helens_2d.npy"
     sdf = load_sdf(sdf_file, s_o, shift)
