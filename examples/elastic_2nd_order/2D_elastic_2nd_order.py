@@ -51,8 +51,10 @@ def get_vti_bcs(nx, ny, ux, uy, v_p2, v_s2, ep, de, s_o):
     v_s4 = v_s2**2
 
     # Note that a factor of rho has been removed here
-    txx = (1+2*ep)*v_p2*ux.dx + (de*v_p2-v_p2+2*v_s2)*uy.dy
-    tyy = (1+2*ep)*v_p2*uy.dy + (de*v_p2-v_p2+2*v_s2)*ux.dx
+    txx = (1+2*ep)*v_p2*ux.dx \
+        + (v_s2 + np.sqrt(2*de*(2*v_p2-v_s2)*(v_p2-v_s2)))*uy.dy
+    tyy = (1+2*ep)*v_p2*uy.dy \
+        + (v_s2 + np.sqrt(2*de*(2*v_p2-v_s2)*(v_p2-v_s2)))*ux.dx
     txy = v_s2*ux.dy + v_s2*uy.dx
 
     # With fourth-order boundary conditions
@@ -61,81 +63,71 @@ def get_vti_bcs(nx, ny, ux, uy, v_p2, v_s2, ep, de, s_o):
 
     if s_o >= 4:
         bc4 = [dv.Eq(ny*ux.dy3*v_s4
-                     + ux.dx2dy*ny*(de*v_p2*np.sqrt(2*de*v_p4
-                                                    - 2*de*v_p2*v_s2
-                                                    + v_p4
-                                                    - 2*v_p2*v_s2
-                                                    + v_s4)
-                                    + 2*ep*v_p2*v_s2 + ny*v_p2*v_s2
-                                    - v_p2*np.sqrt(2*de*v_p4
-                                                   - 2*de*v_p2*v_s2
+                     + ny*ux.dx2dy*(2*ep*v_p2*v_s2 + v_p2*v_s2
+                                    + v_s2*np.sqrt(2*de*v_p4 - 2*de*v_p2*v_s2
                                                    + v_p4 - 2*v_p2*v_s2
                                                    + v_s4)
-                                    + 2*v_s2*np.sqrt(2*de*v_p4
-                                                     - 2*de*v_p2*v_s2
-                                                     + v_p4
-                                                     - 2*v_p2*v_s2
-                                                     + v_s4))
-                     + ux.dx3*nx*(4*ep**2*v_p4 + 4*ep*v_p4 + v_p4)
-                     + ux.dxdy2*nx*(2*ep*v_p2*v_s2 + v_p2*v_s2
-                                    + v_s2*np.sqrt(2*de*v_p4
-                                                   - 2*de*v_p2*v_s2
+                                    + np.sqrt(2)*np.sqrt(de*(2*v_p4
+                                                             - 3*v_p2*v_s2
+                                                             + v_s4))
+                                    * np.sqrt(2*de*v_p4 - 2*de*v_p2*v_s2
+                                              + v_p4 - 2*v_p2*v_s2 + v_s4))
+                     + nx*ux.dx3*(4*ep**2*v_p4 + 4*ep*v_p4 + v_p4)
+                     + nx*ux.dxdy2*(2*ep*v_p2*v_s2 + v_p2*v_s2
+                                    + v_s2*np.sqrt(2*de*v_p4 - 2*de*v_p2*v_s2
                                                    + v_p4 - 2*v_p2*v_s2
                                                    + v_s4))
-                     + uy.dx2dy*nx*(2*de*ep*v_p4 + de*v_p4 - 2*ep*v_p4
-                                    + 4*ep*v_p2*v_s2 - v_p4
-                                    + 2*v_p2*v_s2
-                                    + v_s2*np.sqrt(2*de*v_p4
-                                                   - 2*de*v_p2*v_s2
-                                                   + v_p4
-                                                   - 2*v_p2*v_s2
-                                                   + v_s4))
-                     + uy.dx3*ny*(2*ep*v_p2*v_s2 + v_p2*v_s2)
-                     + uy.dxdy2*ny*(2*ep*v_p2*np.sqrt(2*de*v_p4
-                                                      - 2*de*v_p2*v_s2
-                                                      + v_p4
-                                                      - 2*v_p2*v_s2
-                                                      + v_s4)
-                                    + v_p2*np.sqrt(2*de*v_p4
-                                                   - 2*de*v_p2*v_s2
-                                                   + v_p4
-                                                   - 2*v_p2*v_s2
-                                                   + v_s4)
-                                    + v_s4)
-                     + uy.dy3*nx*(de*v_p2*v_s2 - v_p2*v_s2 + 2*v_s4), 0),
-               dv.Eq(nx*ux.dy3*v_p2*v_s2 + nx*uy.dx3*v_s4
-                     + ux.dx2dy*nx*(2*ep*v_p2*np.sqrt(2*de*v_p4
-                                                      - 2*de*v_p2*v_s2
-                                                      + v_p4
-                                                      - 2*v_p2*v_s2
-                                                      + v_s4)
-                                    + v_p2*np.sqrt(2*de*v_p4
-                                                   - 2*de*v_p2*v_s2
-                                                   + v_p4
-                                                   - 2*v_p2*v_s2 + v_s4)
-                                    + v_s4)
-                     + ux.dx3*ny*(de*v_p2*v_s2 - v_p2*v_s2 + 2*v_s4)
-                     + ux.dxdy2*ny*(de*v_p4 - v_p4 + 2*v_p2*v_s2
-                                    + v_s2*np.sqrt(2*de*v_p4
-                                                   - 2*de*v_p2*v_s2
-                                                   + v_p4 - 2*v_p2*v_s2
-                                                   + v_s4))
-                     + uy.dx2dy*ny*(2*ep*v_p2*v_s2 + v_p2*v_s2
-                                    + v_s2*np.sqrt(2*de*v_p4
-                                                   - 2*de*v_p2*v_s2 + v_p4
-                                                   - 2*v_p2*v_s2 + v_s4))
-                     + uy.dxdy2*nx*(de*v_p2*np.sqrt(2*de*v_p4
-                                                    - 2*de*v_p2*v_s2 + v_p4
-                                                    - 2*v_p2*v_s2 + v_s4)
+                     + nx*uy.dx2dy*(2*ep*v_p2*v_s2
+                                    + 2*np.sqrt(2)*ep*v_p2
+                                    * np.sqrt(de*(2*v_p4 - 3*v_p2*v_s2 + v_s4))
                                     + v_p2*v_s2
-                                    - nx*v_p2*np.sqrt(2*de*v_p4
+                                    + np.sqrt(2)*v_p2
+                                    * np.sqrt(de*(2*v_p4 - 3*v_p2*v_s2 + v_s4))
+                                    + v_s2*np.sqrt(2*de*v_p4 - 2*de*v_p2*v_s2
+                                                   + v_p4 - 2*v_p2*v_s2
+                                                   + v_s4))
+                     + ny*uy.dx3*(2*ep*v_p2*v_s2 + v_p2*v_s2)
+                     + ny*uy.dxdy2*(2*ep*v_p2*np.sqrt(2*de*v_p4
                                                       - 2*de*v_p2*v_s2
                                                       + v_p4 - 2*v_p2*v_s2
                                                       + v_s4)
-                                    + 2*v_s2*np.sqrt(2*de*v_p4
-                                                     - 2*de*v_p2*v_s2 + v_p4
-                                                     - 2*v_p2*v_s2 + v_s4))
-                     + uy.dy3*ny*(2*ep*v_p4 + v_p4))]
+                                    + v_p2*np.sqrt(2*de*v_p4 - 2*de*v_p2*v_s2
+                                                   + v_p4 - 2*v_p2*v_s2
+                                                   + v_s4)
+                                    + v_s4)
+                     + nx*uy.dy3*(v_s4 + np.sqrt(2)*v_s2
+                                  * np.sqrt(de*(2*v_p4 - 3*v_p2*v_s2 + v_s4))),
+                     0),
+               dv.Eq(nx*ux.dy3*v_p2*v_s2
+                     + nx*uy.dx3*v_s4
+                     + nx*ux.dx2dy*(2*ep*v_p2*np.sqrt(2*de*v_p4
+                                                      - 2*de*v_p2*v_s2
+                                                      + v_p4 - 2*v_p2*v_s2
+                                                      + v_s4)
+                                    + v_p2*np.sqrt(2*de*v_p4 - 2*de*v_p2*v_s2
+                                                   + v_p4 - 2*v_p2*v_s2 + v_s4)
+                                    + v_s4)
+                     + ny*ux.dx3*(v_s4 + np.sqrt(2)*v_s2
+                                  * np.sqrt(de*(2*v_p4 - 3*v_p2*v_s2 + v_s4)))
+                     + ny*ux.dxdy2*(v_p2*v_s2
+                                    + np.sqrt(2)*v_p2
+                                    * np.sqrt(de*(2*v_p4 - 3*v_p2*v_s2 + v_s4))
+                                    + v_s2*np.sqrt(2*de*v_p4 - 2*de*v_p2*v_s2
+                                                   + v_p4 - 2*v_p2*v_s2
+                                                   + v_s4))
+                     + ny*uy.dx2dy*(2*ep*v_p2*v_s2 + v_p2*v_s2
+                                    + v_s2*np.sqrt(2*de*v_p4 - 2*de*v_p2*v_s2
+                                                   + v_p4 - 2*v_p2*v_s2
+                                                   + v_s4))
+                     + nx*uy.dxdy2*(v_p2*v_s2
+                                    + v_s2*np.sqrt(2*de*v_p4 - 2*de*v_p2*v_s2
+                                                   + v_p4 - 2*v_p2*v_s2
+                                                   + v_s4)
+                                    + np.sqrt(2)
+                                    * np.sqrt(de*(2*v_p4 - 3*v_p2*v_s2 + v_s4))
+                                    * np.sqrt(2*de*v_p4 - 2*de*v_p2*v_s2
+                                              + v_p4 - 2*v_p2*v_s2 + v_s4))
+                     + ny*uy.dy3*(2*ep*v_p4 + v_p4), 0)]
 
         bc_list += bc4
 
@@ -241,6 +233,9 @@ def run(sdf, s_o, nsnaps, mode):
 
 
 def plot_snaps(uxsave_data, uysave_data, shift, sdf):
+    for i in range(1, 5):
+        print(np.linalg.norm(uxsave_data[i])
+              + np.linalg.norm(uysave_data[i]))
     # FIXME: Hardcoded for four snapshots
     # Plot extent
     plt_ext = (0., 9600., 0.-shift*30., 5100.-shift*30.)
