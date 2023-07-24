@@ -44,17 +44,17 @@ def get_iso_bcs(nx, ny, ux, uy, lam, mu, s_o):
     return bc_list
 
 
-def get_vti_bcs(nx, ny, ux, uy, v_p2, v_s2, ep, de, s_o):
+def get_vti_bcs(nx, ny, ux, uy, v_p2, v_s2, v_pn2, v_px2, s_o):
     """Returns boundary conditions for the vti case"""
     # More shorthands
     v_p4 = v_p2**2
     v_s4 = v_s2**2
 
     # Note that a factor of rho has been removed here
-    txx = (1+2*ep)*v_p2*ux.dx \
-        + (v_s2 + np.sqrt(2*de*(2*v_p2-v_s2)*(v_p2-v_s2)))*uy.dy
-    tyy = (1+2*ep)*v_p2*uy.dy \
-        + (v_s2 + np.sqrt(2*de*(2*v_p2-v_s2)*(v_p2-v_s2)))*ux.dx
+    txx = v_px2*ux.dx \
+        + np.sqrt((v_p2-v_s2)*(v_pn2-v_s2))*uy.dy - v_s2*uy.dy
+    tyy = np.sqrt((v_p2-v_s2)*(v_pn2-v_s2))*uy.dy - v_s2*ux.dx \
+        + v_p2*uy.dy
     txy = v_s2*ux.dy + v_s2*uy.dx
 
     # With fourth-order boundary conditions
@@ -62,72 +62,46 @@ def get_vti_bcs(nx, ny, ux, uy, v_p2, v_s2, ep, de, s_o):
                dv.Eq(nx*txy + ny*tyy, 0)]
 
     if s_o >= 4:
-        bc4 = [dv.Eq(ny*ux.dy3*v_s4
-                     + ny*ux.dx2dy*(2*ep*v_p2*v_s2 + v_p2*v_s2
-                                    + v_s2*np.sqrt(2*de*v_p4 - 2*de*v_p2*v_s2
-                                                   + v_p4 - 2*v_p2*v_s2
-                                                   + v_s4)
-                                    + np.sqrt(2)*np.sqrt(de*(2*v_p4
-                                                             - 3*v_p2*v_s2
-                                                             + v_s4))
-                                    * np.sqrt(2*de*v_p4 - 2*de*v_p2*v_s2
-                                              + v_p4 - 2*v_p2*v_s2 + v_s4))
-                     + nx*ux.dx3*(4*ep**2*v_p4 + 4*ep*v_p4 + v_p4)
-                     + nx*ux.dxdy2*(2*ep*v_p2*v_s2 + v_p2*v_s2
-                                    + v_s2*np.sqrt(2*de*v_p4 - 2*de*v_p2*v_s2
-                                                   + v_p4 - 2*v_p2*v_s2
-                                                   + v_s4))
-                     + nx*uy.dx2dy*(2*ep*v_p2*v_s2
-                                    + 2*np.sqrt(2)*ep*v_p2
-                                    * np.sqrt(de*(2*v_p4 - 3*v_p2*v_s2 + v_s4))
-                                    + v_p2*v_s2
-                                    + np.sqrt(2)*v_p2
-                                    * np.sqrt(de*(2*v_p4 - 3*v_p2*v_s2 + v_s4))
-                                    + v_s2*np.sqrt(2*de*v_p4 - 2*de*v_p2*v_s2
-                                                   + v_p4 - 2*v_p2*v_s2
-                                                   + v_s4))
-                     + ny*uy.dx3*(2*ep*v_p2*v_s2 + v_p2*v_s2)
-                     + ny*uy.dxdy2*(2*ep*v_p2*np.sqrt(2*de*v_p4
-                                                      - 2*de*v_p2*v_s2
-                                                      + v_p4 - 2*v_p2*v_s2
-                                                      + v_s4)
-                                    + v_p2*np.sqrt(2*de*v_p4 - 2*de*v_p2*v_s2
-                                                   + v_p4 - 2*v_p2*v_s2
-                                                   + v_s4)
+        bc4 = [dv.Eq(nx*ux.dx3*v_pn2*v_px2
+                     + ny*ux.dy3*v_s4
+                     + ny*uy.dx3*v_pn2*v_s2
+                     + ny*ux.dx2dy*(v_p2*v_pn2 - v_p2*v_s2 + v_s4
+                                    - v_s2*np.sqrt(v_p2*v_pn2 - v_p2*v_s2
+                                                   - v_pn2*v_s2 + v_s4))
+                     + nx*ux.dxdy2*(v_px2*v_s2
+                                    + v_s2*np.sqrt(v_p2*v_pn2 - v_p2*v_s2
+                                                   - v_pn2*v_s2 + v_s4))
+                     + nx*uy.dx2dy*(-v_pn2*v_s2
+                                    + v_pn2*np.sqrt(v_p2*v_pn2 - v_p2*v_s2
+                                                    - v_pn2*v_s2 + v_s4)
+                                    + v_s2*np.sqrt(v_p2*v_pn2 - v_p2*v_s2
+                                                   - v_pn2*v_s2 + v_s4))
+                     + ny*uy.dxdy2*(v_p2*np.sqrt(v_p2*v_pn2 - v_p2*v_s2
+                                                 - v_pn2*v_s2 + v_s4)
                                     + v_s4)
-                     + nx*uy.dy3*(v_s4 + np.sqrt(2)*v_s2
-                                  * np.sqrt(de*(2*v_p4 - 3*v_p2*v_s2 + v_s4))),
-                     0),
+                     + nx*uy.dy3*(-v_s4
+                                  + v_s2*np.sqrt(v_p2*v_pn2 - v_p2*v_s2
+                                                 - v_pn2*v_s2 + v_s4)), 0),
                dv.Eq(nx*ux.dy3*v_p2*v_s2
                      + nx*uy.dx3*v_s4
-                     + nx*ux.dx2dy*(2*ep*v_p2*np.sqrt(2*de*v_p4
-                                                      - 2*de*v_p2*v_s2
-                                                      + v_p4 - 2*v_p2*v_s2
-                                                      + v_s4)
-                                    + v_p2*np.sqrt(2*de*v_p4 - 2*de*v_p2*v_s2
-                                                   + v_p4 - 2*v_p2*v_s2 + v_s4)
+                     + ny*uy.dy3*v_p4
+                     + nx*ux.dx2dy*(v_px2*np.sqrt(v_p2*v_pn2 - v_p2*v_s2
+                                                  - v_pn2*v_s2 + v_s4)
                                     + v_s4)
-                     + ny*ux.dx3*(v_s4 + np.sqrt(2)*v_s2
-                                  * np.sqrt(de*(2*v_p4 - 3*v_p2*v_s2 + v_s4)))
-                     + ny*ux.dxdy2*(v_p2*v_s2
-                                    + np.sqrt(2)*v_p2
-                                    * np.sqrt(de*(2*v_p4 - 3*v_p2*v_s2 + v_s4))
-                                    + v_s2*np.sqrt(2*de*v_p4 - 2*de*v_p2*v_s2
-                                                   + v_p4 - 2*v_p2*v_s2
-                                                   + v_s4))
-                     + ny*uy.dx2dy*(2*ep*v_p2*v_s2 + v_p2*v_s2
-                                    + v_s2*np.sqrt(2*de*v_p4 - 2*de*v_p2*v_s2
-                                                   + v_p4 - 2*v_p2*v_s2
-                                                   + v_s4))
-                     + nx*uy.dxdy2*(v_p2*v_s2
-                                    + v_s2*np.sqrt(2*de*v_p4 - 2*de*v_p2*v_s2
-                                                   + v_p4 - 2*v_p2*v_s2
-                                                   + v_s4)
-                                    + np.sqrt(2)
-                                    * np.sqrt(de*(2*v_p4 - 3*v_p2*v_s2 + v_s4))
-                                    * np.sqrt(2*de*v_p4 - 2*de*v_p2*v_s2
-                                              + v_p4 - 2*v_p2*v_s2 + v_s4))
-                     + ny*uy.dy3*(2*ep*v_p4 + v_p4), 0)]
+                     + ny*ux.dx3*(-v_s4
+                                  + v_s2*np.sqrt(v_p2*v_pn2 - v_p2*v_s2
+                                                 - v_pn2*v_s2 + v_s4))
+                     + ny*ux.dxdy2*(-v_p2*v_s2
+                                    + v_p2*np.sqrt(v_p2*v_pn2 - v_p2*v_s2
+                                                   - v_pn2*v_s2 + v_s4)
+                                    + v_s2*np.sqrt(v_p2*v_pn2 - v_p2*v_s2
+                                                   - v_pn2*v_s2 + v_s4))
+                     + ny*uy.dx2dy*(v_p2*v_s2
+                                    + v_s2*np.sqrt(v_p2*v_pn2 - v_p2*v_s2
+                                                   - v_pn2*v_s2 + v_s4))
+                     + nx*uy.dxdy2*(v_p2*v_pn2 - v_pn2*v_s2 + v_s4
+                                    - v_s2*np.sqrt(v_p2*v_pn2 - v_p2*v_s2
+                                                   - v_pn2*v_s2 + v_s4)), 0)]
 
         bc_list += bc4
 
@@ -168,7 +142,9 @@ def run(sdf, s_o, nsnaps, mode):
         v_p2 = v_p**2
         v_s2 = v_s**2
         v_pn2 = (1+2*de)*v_p**2
-        bc_list = get_vti_bcs(nx, ny, ux, uy, v_p2, v_s2, ep, de, s_o)
+        v_px2 = (1+2*ep)*v_p**2
+        bc_list = get_vti_bcs(nx, ny, ux, uy, v_p2, v_s2,
+                              v_pn2, v_px2, s_o)
 
     # TODO: add higher-order bcs
     bcs = BoundaryConditions(bc_list)
@@ -207,7 +183,7 @@ def run(sdf, s_o, nsnaps, mode):
         rhs_ux = b*(lam+2*mu)*ux.dx2 + b*mu*ux.dy2 + b*(lam+mu)*uy.dxdy
         rhs_uy = b*(lam+2*mu)*uy.dy2 + b*mu*uy.dx2 + b*(lam+mu)*ux.dxdy
     elif mode == 'vti':
-        rhs_ux = v_p2*(1+2*ep)*ux.dx2 + v_s2*ux.dy2 \
+        rhs_ux = v_px2*ux.dx2 + v_s2*ux.dy2 \
             + np.sqrt((v_p2-v_s2)*(v_pn2-v_s2))*uy.dxdy
         rhs_uy = v_s2*uy.dx2 + v_p2*uy.dy2 \
             + np.sqrt((v_p2-v_s2)*(v_pn2-v_s2))*ux.dxdy
