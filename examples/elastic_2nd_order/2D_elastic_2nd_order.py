@@ -12,10 +12,56 @@ discontinuity.
 import matplotlib.pyplot as plt
 import numpy as np
 import devito as dv
+import sympy as sp
 import os
 
 from schism import BoundaryGeometry, BoundaryConditions, Boundary
 from examples.seismic import TimeAxis, RickerSource
+
+
+def as_tensor(matrix, voigt):
+    """Convert Voigt notation to stiffness tensor in 2D"""
+    tensor = sp.tensor.array.MutableDenseNDimArray.zeros(2, 2, 2, 2)
+
+    for k1, v1 in voigt.items():
+        i, j = k1
+        alpha = v1
+        for k2, v2 in voigt.items():
+            k, l = k2
+            beta = v2
+            tensor[i, j, k, l] = matrix[alpha, beta]
+    return tensor
+
+
+def tensor_to_matrix(tensor, voigt):
+    """Convert stiffness tensor to Voigt notation in 2D"""
+    matrix = sp.zeros(3, 3)
+
+    for k1, v1 in voigt.items():
+        i, j = k1
+        alpha = v1
+        for k2, v2 in voigt.items():
+            k, l = k2
+            beta = v2
+            matrix[alpha, beta] = tensor[i, j, k, l]
+    return matrix
+
+
+def rotate(matrix, R, voigt):
+    """Rotate a stiffness tensor in Voigt notation using matrix R"""
+    C = as_tensor(matrix, voigt)
+    rotated = sp.tensor.array.MutableDenseNDimArray.zeros(2, 2, 2, 2)
+    for i in range(2):
+        for j in range(2):
+            for k in range(2):
+                for l in range(2):
+                    for ii in range(2):
+                        for jj in range(2):
+                            for kk in range(2):
+                                for ll in range(2):
+                                    gg = R[ii, i]*R[jj, j]*R[kk, k]*R[ll, l]
+                                    rotated[i, j, k, l] += gg*C[ii, jj, kk, ll]
+    return tensor_to_matrix(rotated, voigt)
 
 
 def get_iso_bcs(nx, ny, ux, uy, lam, mu, s_o):
@@ -45,7 +91,7 @@ def get_iso_bcs(nx, ny, ux, uy, lam, mu, s_o):
 
 
 def get_vti_bcs(nx, ny, ux, uy, v_p2, v_s2, v_pn2, v_px2, s_o):
-    """Returns boundary conditions for the vti case"""
+    """Returns boundary conditions for the VTI case"""
     # More shorthands
     v_p4 = v_p2**2
     v_s4 = v_s2**2
@@ -108,6 +154,69 @@ def get_vti_bcs(nx, ny, ux, uy, v_p2, v_s2, v_pn2, v_px2, s_o):
     return bc_list
 
 
+def get_tti_bcs(nx, ny, ux, uy,
+                d11, d12, d13, d22, d23, d33,
+                s_o):
+    """Returns boundary conditions for the TTI case"""
+    # Note that a factor of rho has been removed here
+    txx = d11*ux.dx + d12*uy.dy + d13*ux.dy + d13*uy.dx
+    tyy = d12*ux.dx + d22*uy.dy + d23*ux.dy + d23*uy.dx
+    txy = d13*ux.dx + d23*uy.dy + d33*ux.dy + d33*uy.dx
+
+    bc_list = [dv.Eq(nx*txx + ny*txy, 0),
+               dv.Eq(nx*txy + ny*tyy, 0)]
+
+
+    if s_o >= 4:
+        bc4 = [dv.Eq(ux.dx2dy*(3*d11*d13*nx + d11*d33*ny + d12**2*ny
+                               + d12*d13*nx + d12*d33*ny + 2*d13**2*ny
+                               + d13*d23*ny + 2*d13*d33*nx)
+                     + ux.dx3*(d11**2*nx + d11*d13*ny + d12*d13*ny
+                               + d13**2*nx)
+                     + ux.dxdy2*(d11*d33*nx + 2*d12*d23*ny + d12*d33*nx
+                                 + 2*d13**2*nx + d13*d23*nx + 3*d13*d33*ny
+                                 + d23*d33*ny + d33**2*nx)
+                     + ux.dy3*(d13*d33*nx + d23**2*ny + d23*d33*nx
+                               + d33**2*ny)
+                     + uy.dx2dy*(d11*d12*nx + d11*d23*ny + d12*d23*ny
+                                 + d12*d33*nx + 2*d13**2*nx + d13*d22*ny
+                                 + d13*d23*nx + 2*d13*d33*ny + d23*d33*ny
+                                 + d33**2*nx)
+                     + uy.dx3*(d11*d13*nx + d11*d33*ny + d13*d23*ny
+                               + d13*d33*nx)
+                     + uy.dxdy2*(2*d12*d13*nx + d12*d22*ny + d12*d23*nx
+                                 + 2*d13*d23*ny + d13*d33*nx + d22*d33*ny
+                                 + d23**2*ny + 2*d23*d33*nx + d33**2*ny)
+                     + uy.dy3*(d12*d33*nx + d22*d23*ny + d23**2*nx
+                               + d23*d33*ny), 0),
+               dv.Eq(ux.dx2dy*(d11*d12*nx + d11*d33*nx + d12*d13*ny
+                               + 2*d12*d23*ny
+                               + d13**2*nx + 2*d13*d23*nx + 2*d13*d33*ny
+                               + d23*d33*ny + d33**2*nx)
+                     + ux.dx3*(d11*d13*nx + d12*d33*ny + d13**2*ny
+                               + d13*d33*nx)
+                     + ux.dxdy2*(d11*d23*nx + d12*d13*nx + d12*d22*ny
+                                 + d12*d33*ny
+                                 + d13*d22*nx + d13*d23*ny + d13*d33*nx
+                                 + 2*d23**2*ny + 2*d23*d33*nx + d33**2*ny)
+                     + ux.dy3*(d13*d23*nx + d22*d23*ny + d22*d33*nx
+                               + d23*d33*ny)
+                     + uy.dx2dy*(2*d12*d13*nx + d12*d33*ny + d13*d23*ny
+                                + d13*d33*nx + d22*d33*ny + 2*d23**2*ny
+                                + 3*d23*d33*nx + d33**2*ny)
+                     + uy.dx3*(d13**2*nx + d13*d33*ny + d23*d33*ny
+                               + d33**2*nx)
+                     + uy.dxdy2*(d12**2*nx + d12*d23*ny + d12*d33*nx
+                                 + d13*d23*nx
+                                 + 3*d22*d23*ny + d22*d33*nx + 2*d23**2*nx
+                                 + 2*d23*d33*ny)
+                     + uy.dy3*(d12*d23*nx + d22**2*ny + d22*d23*nx
+                               + d23**2*ny), 0)]
+        bc_list += bc4
+
+    return bc_list
+
+
 def run(sdf, s_o, nsnaps, mode):
     """Run a forward model if no file found to read"""
     grid = sdf.grid
@@ -145,8 +254,52 @@ def run(sdf, s_o, nsnaps, mode):
         v_px2 = (1+2*ep)*v_p**2
         bc_list = get_vti_bcs(nx, ny, ux, uy, v_p2, v_s2,
                               v_pn2, v_px2, s_o)
+    elif mode == 'tti':
+        # Anisotropy parameters
+        de = 0.1
+        ep = 0.25
+        # Tilt
+        th = np.radians(45)
 
-    # TODO: add higher-order bcs
+        # Seismic wavespeeds
+        v_p02 = v_p**2
+        v_s02 = v_s**2
+        v_pn2 = (1+2*de)*v_p**2
+        v_px2 = (1+2*ep)*v_p**2
+
+        # VTI stiffness tensor entries (uses conventions from 3D case)
+        c11 = rho*v_px2
+        c13 = rho*np.sqrt((v_p02-v_s02)*(v_pn2-v_s02))-rho*v_s02
+        c33 = rho*v_p02
+        c44 = rho*v_s02
+
+        # Assemble the VTI stiffness tensor (Voigt notation)
+        C = sp.Matrix([[c11, c13, 0],
+                       [c13, c33, 0],
+                       [0, 0, c44]])
+
+        # Rotation matrix
+        R = sp.Matrix([[np.cos(th), -np.sin(th)],
+                       [np.sin(th), np.cos(th)]])
+
+        # Apparatus to perform rotation
+        voigt = {(0, 0): 0, (1, 1): 1, (0, 1): 2, (1, 0): 2}
+
+        # Get the rotated stiffness tensor (D)
+        D = rotate(C, R, voigt)
+
+        # Shorthands for components of D
+        d11 = D[0, 0]
+        d12 = D[0, 1]
+        d13 = D[0, 2]
+        d22 = D[1, 1]
+        d23 = D[1, 2]
+        d33 = D[2, 2]
+
+        bc_list = get_tti_bcs(nx, ny, ux, uy,
+                              d11, d12, d13, d22, d23, d33,
+                              s_o)
+
     bcs = BoundaryConditions(bc_list)
     boundary = Boundary(bcs, bg)
 
@@ -187,6 +340,11 @@ def run(sdf, s_o, nsnaps, mode):
             + np.sqrt((v_p2-v_s2)*(v_pn2-v_s2))*uy.dxdy
         rhs_uy = v_s2*uy.dx2 + v_p2*uy.dy2 \
             + np.sqrt((v_p2-v_s2)*(v_pn2-v_s2))*ux.dxdy
+    elif mode == 'tti':
+        rhs_ux = b*(d11*ux.dx2 + 2*d13*ux.dxdy + d33*ux.dy2
+                    + d13*uy.dx2 + (d12+d33)*uy.dxdy + d23*uy.dy2)
+        rhs_uy = b*(d13*ux.dx2 + (d12+d33)*ux.dxdy + d23*ux.dy2
+                    + d33*uy.dx2 + 2*d23*uy.dxdy + d22*uy.dy2)
 
     eq_ux = dv.Eq(ux.forward,
                   2*ux - ux.backward
@@ -281,8 +439,8 @@ def main():
     sdf_file = "/../infrasound/surface_files/mt_st_helens_2d.npy"
     sdf = load_sdf(sdf_file, s_o, shift)
 
-    # Mode, can be 'iso' or 'vti
-    mode = 'vti'
+    # Mode, can be 'iso', 'vti', or 'tti'
+    mode = 'tti'
 
     outfile_ux = append_path("/2D_elastic_2nd_order_ux_snaps_"
                              + mode + ".npy")
