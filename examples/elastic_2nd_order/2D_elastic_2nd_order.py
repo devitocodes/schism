@@ -27,9 +27,10 @@ def as_tensor(matrix, voigt):
         i, j = k1
         alpha = v1
         for k2, v2 in voigt.items():
-            k, l = k2
+            # Linting complains about l as a variable so use m
+            k, m = k2
             beta = v2
-            tensor[i, j, k, l] = matrix[alpha, beta]
+            tensor[i, j, k, m] = matrix[alpha, beta]
     return tensor
 
 
@@ -41,9 +42,9 @@ def tensor_to_matrix(tensor, voigt):
         i, j = k1
         alpha = v1
         for k2, v2 in voigt.items():
-            k, l = k2
+            k, m = k2
             beta = v2
-            matrix[alpha, beta] = tensor[i, j, k, l]
+            matrix[alpha, beta] = tensor[i, j, k, m]
     return matrix
 
 
@@ -54,13 +55,13 @@ def rotate(matrix, R, voigt):
     for i in range(2):
         for j in range(2):
             for k in range(2):
-                for l in range(2):
+                for m in range(2):
                     for ii in range(2):
                         for jj in range(2):
                             for kk in range(2):
-                                for ll in range(2):
-                                    gg = R[ii, i]*R[jj, j]*R[kk, k]*R[ll, l]
-                                    rotated[i, j, k, l] += gg*C[ii, jj, kk, ll]
+                                for mm in range(2):
+                                    gg = R[ii, i]*R[jj, j]*R[kk, k]*R[mm, m]
+                                    rotated[i, j, k, m] += gg*C[ii, jj, kk, mm]
     return tensor_to_matrix(rotated, voigt)
 
 
@@ -166,7 +167,6 @@ def get_tti_bcs(nx, ny, ux, uy,
     bc_list = [dv.Eq(nx*txx + ny*txy, 0),
                dv.Eq(nx*txy + ny*tyy, 0)]
 
-
     if s_o >= 4:
         bc4 = [dv.Eq(ux.dx2dy*(3*d11*d13*nx + d11*d33*ny + d12**2*ny
                                + d12*d13*nx + d12*d33*ny + 2*d13**2*ny
@@ -202,8 +202,8 @@ def get_tti_bcs(nx, ny, ux, uy,
                      + ux.dy3*(d13*d23*nx + d22*d23*ny + d22*d33*nx
                                + d23*d33*ny)
                      + uy.dx2dy*(2*d12*d13*nx + d12*d33*ny + d13*d23*ny
-                                + d13*d33*nx + d22*d33*ny + 2*d23**2*ny
-                                + 3*d23*d33*nx + d33**2*ny)
+                                 + d13*d33*nx + d22*d33*ny + 2*d23**2*ny
+                                 + 3*d23*d33*nx + d33**2*ny)
                      + uy.dx3*(d13**2*nx + d13*d33*ny + d23*d33*ny
                                + d33**2*nx)
                      + uy.dxdy2*(d12**2*nx + d12*d23*ny + d12*d33*nx
