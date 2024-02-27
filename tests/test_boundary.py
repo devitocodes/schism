@@ -8,6 +8,7 @@ import numpy as np
 from test_geometry import read_sdf
 from schism import BoundaryConditions, Boundary, BoundaryGeometry
 from collections import Counter
+from devito.tools.utils import filter_sorted
 
 
 class TestSubstitutions:
@@ -139,6 +140,10 @@ class TestSubstitutions:
 
         current_weights = dv.symbolics.retrieve_functions(current)
         forward_weights = dv.symbolics.retrieve_functions(forward)
+
+        # Sort to ensure that weights are in the same order
+        current_weights = filter_sorted(current_weights)
+        forward_weights = filter_sorted(forward_weights)
 
         for crt, fwd in zip(current_weights, forward_weights):
             assert np.all(np.isclose(crt.data, fwd.data))

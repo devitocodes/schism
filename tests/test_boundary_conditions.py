@@ -245,10 +245,13 @@ class TestBC:
         condition = SingleCondition(bc, funcs=funcs)
         # Check that if we substitute the placeholders for their expressions,
         # we get our original LHS
-        check = sp.simplify(condition.lhs
-                            - condition._mod_lhs.subs(condition.expr_map))
 
-        assert check == 0
+        # Force expansion as sympy as need to string check
+        reconstruction = sp.expand(condition._mod_lhs.subs(condition.expr_map))
+        expanded_lhs = sp.expand(condition.lhs)
+
+        # Matching strings is ugly, but SymPy simplification is unreliable
+        assert str(reconstruction) == str(expanded_lhs)
 
     @pytest.mark.parametrize('bc, g', [(dv.Eq(f+g), g), (dv.Eq(g*f.dx+g), g),
                                        (dv.Eq(f+g+1), g), (dv.Eq(g*(f+1)), g)])
