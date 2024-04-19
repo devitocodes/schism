@@ -208,13 +208,19 @@ class SingleCondition:
             except KeyError:
                 # Should never end up here
                 raise ValueError("No basis generated for required function")
-            if type(deriv.deriv_order) != dv.types.utils.DimensionTuple:
-                d_o = (deriv.deriv_order,)
+
+            if type(deriv.deriv_order) is int:
+                # Derivative taken wrt single dimension.
+                b_derivs = [(deriv.dims[0], deriv.deriv_order)]
             else:
-                d_o = deriv.deriv_order
-            # Derivs to take of the basis
-            b_derivs = tuple([(deriv.dims[i], d_o[i])
-                              for i in range(len(deriv.dims))])
+                d_order = tuple(o for o in deriv.deriv_order if o != 0)
+                if len(deriv.dims) != len(d_order):
+                    raise ValueError("Derivatives specified as"
+                                     " Derivative(f, x, x) are not compatible"
+                                     " with Schism. Use the"
+                                     " Derivative(f, (x, 2)) or f.dx2"
+                                     " conventions instead")
+                b_derivs = [(d, o) for d, o in zip(deriv.dims, d_order)]
             reps[deriv] = basis.deriv(b_derivs)
         return sp.simplify(self._mod_lhs.subs(reps))
 
