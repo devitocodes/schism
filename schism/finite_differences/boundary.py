@@ -1,6 +1,7 @@
 """Immersed boundary object forming the core API"""
 
 import devito as dv
+from devito.tools.memoization import memoized_meth
 
 from schism.geometry.skin import ModifiedSkin
 from schism.basic.basis import Basis
@@ -42,6 +43,7 @@ class Boundary:
         self._conditions = conditions
         self._geometry = geometry
 
+    @memoized_meth
     def substitutions(self, derivs):
         """
         Get the substitution for the specified derivative. This will return
