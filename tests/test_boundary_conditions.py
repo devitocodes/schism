@@ -180,7 +180,18 @@ class TestBC:
                                'x**2*d_f_2d(2, 0)/2 + x*y*d_f_2d(1, 1) '
                                + '+ x*d_f_2d(1, 0) + y**2*d_f_2d(0, 2)/2 '
                                + '+ y*d_f_2d(0, 1) + d_f_2d(0, 0)'),
+                              (dv.Eq(dv.Derivative(f, x, y), 0), {f: basisf2D},
+                               'd_f_2d(1, 1)'),
+                              (dv.Eq(dv.Derivative(f, y, x), 0), {f: basisf2D},
+                               'd_f_2d(1, 1)'),
+                              (dv.Eq(dv.Derivative(f, (x, 1), (y, 1)), 0),
+                               {f: basisf2D},
+                               'd_f_2d(1, 1)'),
                               (dv.Eq(f.laplace, 0), {f: basisf2D},
+                               'd_f_2d(0, 2) + d_f_2d(2, 0)'),
+                              (dv.Eq(dv.Derivative(f, (x, 2))
+                                     + dv.Derivative(f, (y, 2)), 0),
+                               {f: basisf2D},
                                'd_f_2d(0, 2) + d_f_2d(2, 0)'),
                               (dv.Eq(dv.div(v), 0),
                                {v[0]: basisvx, v[1]: basisvy},
@@ -215,7 +226,6 @@ class TestBC:
         """
         condition = SingleCondition(bc)
         expr = condition.sub_basis(basis_map)
-        print(expr)
         assert str(expr) == ans
 
     @pytest.mark.parametrize('bc, funcs',
