@@ -1,4 +1,5 @@
-devito[tests] @ git+https://github.com/devitocodes/devito@master
-matplotlib
-networkx
-pyvista
+devito==4.8.5
+pytest==8.1.1
+scipy==1.10.1
+networkx==3.1
+sympy==1.12
