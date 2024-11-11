@@ -1,3 +1,8 @@
+## NOTE: Support for OSS Schism has ended
+Dependencies have been fixed at the last confirmed working versions. Feel free to fork this repository to develop your own work.
+
+A continuation of the Schism project is maintained by Devito Codes Ltd, please get in touch if you are interested.
+
 ## Schism
 
 [![CI-Core](https://github.com/EdCaunt/schism/actions/workflows/pytest_core.yml/badge.svg)](https://github.com/EdCaunt/schism/actions/workflows/pytest_core.yml)
