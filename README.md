@@ -22,6 +22,7 @@ This repository is currently a work in process building on my previous effort
 In order to download, install and use Devito follow the instructions
 listed [here](https://github.com/devitocodes/devito).
 
+Please note: the intention of this repository is to explore mathematical abstractions for immersed boundary implementation. It is not recommended that this code be used in performance-critical applications.
 
 ## Quickstart
 In order to install Schism:
